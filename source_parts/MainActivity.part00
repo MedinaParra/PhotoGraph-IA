@@ -1,0 +1,257 @@
+package cl.medina.atatis;
+
+import android.app.Activity;
+import android.content.Context;
+import android.content.SharedPreferences;
+import android.graphics.Canvas;
+import android.graphics.Color;
+import android.graphics.LinearGradient;
+import android.graphics.Paint;
+import android.graphics.Path;
+import android.graphics.RectF;
+import android.graphics.Shader;
+import android.os.Bundle;
+import android.os.SystemClock;
+import android.view.HapticFeedbackConstants;
+import android.view.MotionEvent;
+import android.view.View;
+import android.view.Window;
+import android.view.WindowManager;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Locale;
+import java.util.Random;
+
+public class MainActivity extends Activity {
+    private AtatisView game;
+
+    @Override protected void onCreate(Bundle state) {
+        super.onCreate(state);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
+        getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN,
+                WindowManager.LayoutParams.FLAG_FULLSCREEN);
+        immersive();
+        game = new AtatisView(this);
+        setContentView(game);
+    }
+
+    @Override public void onWindowFocusChanged(boolean focused) {
+        super.onWindowFocusChanged(focused);
+        if (focused) immersive();
+    }
+
+    @Override protected void onPause() {
+        super.onPause();
+        if (game != null) game.save();
+    }
+
+    private void immersive() {
+        getWindow().getDecorView().setSystemUiVisibility(
+                View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY |
+                        View.SYSTEM_UI_FLAG_FULLSCREEN |
+                        View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN |
+                        View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION |
+                        View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
+    }
+
+    static final class AtatisView extends View {
+        private static final int HOME = 0, TETRIS = 1, SKATE = 2, BALL = 3, PLANE = 4;
+        private static final int IDLE = 0, WALK = 1, EAT = 2, CLEAN = 3, HAPPY = 4, SLEEP = 5;
+        private static final int DRAG_NONE = -1, DRAG_SOAP = 10, DRAG_BRUSH = 11, DRAG_TOWEL = 12;
+        private static final String[] ROOMS = {"Dormitorio", "Cocina", "Baño", "Vestidor", "Juegos"};
+        private static final String[] FOOD_NAMES = {"Manzana", "Zanahoria", "Pastel", "Jugo mágico"};
+        private static final int[] FOOD_PRICE = {2, 3, 5, 4};
+        private static final int[] FOOD_GAIN = {16, 20, 30, 23};
+        private static final String[] STYLE_NAMES = {"Arcoíris", "Princesa", "Exploradora", "Pijama", "Fiesta", "Patinadora"};
+        private static final String[] COLOR_NAMES = {"Canela", "Rosita", "Lavanda", "Menta", "Celeste", "Dorada"};
+        private static final int[] FUR = {0xFFA97855, 0xFFE3A3B6, 0xFFAA94D0, 0xFF80C4AA, 0xFF84ADD2, 0xFFD6A94A};
+        private static final int[] MAGIC = {0xFFFF70A6, 0xFFFFD166, 0xFF67D5FF, 0xFF7EE2A8, 0xFFB28DFF, 0xFFFF8A65};
+
+        private final Paint p = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Paint stroke = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Random rnd = new Random();
+        private final SharedPreferences pref;
+        private final List<Particle> particles = new ArrayList<>();
+        private final List<Bubble> bubbles = new ArrayList<>();
+        private final RectF[] navRects = new RectF[5];
+        private final RectF[] dockRects = new RectF[4];
+        private final RectF shopButton = new RectF();
+        private final RectF closeButton = new RectF();
+        private final RectF sleepButton = new RectF();
+        private final RectF[] shopCards = {new RectF(), new RectF(), new RectF(), new RectF()};
+        private final RectF[] styleCards = new RectF[6];
+        private final RectF[] colorCards = new RectF[6];
+        private final TetrisGame tetris = new TetrisGame();
+        private final SkateGame skate = new SkateGame();
+        private final BallGame ball = new BallGame();
+        private final PlaneGame plane = new PlaneGame();
+
+        private int mode = HOME, room, style, fur, coins, state = IDLE;
+        private int dragKind = DRAG_NONE;
+        private final int[] inventory = new int[4];
+        private float happy, food, energy, clean;
+        private float capyX = .5f, targetX = .5f, dragX, dragY;
+        private float t, stateTimer, soapProgress, lastBubbleAt;
+        private long lastFrame = SystemClock.elapsedRealtime(), messageUntil;
+        private boolean shopOpen;
+        private String message = "¡Bienvenida a A-tatis 2.0!";
+
+        AtatisView(Context context) {
+            super(context);
+            setKeepScreenOn(true);
+            setFocusable(true);
+            stroke.setStyle(Paint.Style.STROKE);
+            stroke.setStrokeCap(Paint.Cap.ROUND);
+            stroke.setStrokeJoin(Paint.Join.ROUND);
+            pref = context.getSharedPreferences("atatis_save_v2", Context.MODE_PRIVATE);
+            load();
+        }
+
+        private void load() {
+            room = clamp(pref.getInt("room", 0), 0, 4);
+            style = clamp(pref.getInt("style", 0), 0, STYLE_NAMES.length - 1);
+            fur = clamp(pref.getInt("fur", 0), 0, FUR.length - 1);
+            coins = Math.max(12, pref.getInt("coins", 18));
+            happy = cap(pref.getFloat("happy", 88));
+            food = cap(pref.getFloat("food", 82));
+            energy = cap(pref.getFloat("energy", 85));
+            clean = cap(pref.getFloat("clean", 84));
+            capyX = clampf(pref.getFloat("capyX", .5f), .22f, .78f);
+            targetX = capyX;
+            inventory[0] = pref.getInt("inv0", 2);
+            inventory[1] = pref.getInt("inv1", 1);
+            inventory[2] = pref.getInt("inv2", 0);
+            inventory[3] = pref.getInt("inv3", 1);
+            long elapsed = Math.max(0, System.currentTimeMillis() - pref.getLong("saved", System.currentTimeMillis()));
+            float hours = Math.min(20f, elapsed / 3_600_000f);
+            happy = cap(happy - hours * .7f);
+            food = cap(food - hours * 1.2f);
+            energy = cap(energy - hours * .8f);
+            clean = cap(clean - hours * .6f);
+        }
+
+        void save() {
+            SharedPreferences.Editor e = pref.edit()
+                    .putInt("room", room).putInt("style", style).putInt("fur", fur)
+                    .putInt("coins", coins).putFloat("happy", happy).putFloat("food", food)
+                    .putFloat("energy", energy).putFloat("clean", clean).putFloat("capyX", capyX)
+                    .putLong("saved", System.currentTimeMillis());
+            for (int i = 0; i < 4; i++) e.putInt("inv" + i, inventory[i]);
+            e.apply();
+        }
+
+        @Override protected void onDraw(Canvas c) {
+            long now = SystemClock.elapsedRealtime();
+            float dt = Math.min(.045f, Math.max(.001f, (now - lastFrame) / 1000f));
+            lastFrame = now;
+            t += dt;
+            updateParticles(dt);
+            if (mode == HOME) {
+                updateHome(dt);
+                drawHome(c, getWidth(), getHeight());
+            } else if (mode == TETRIS) {
+                tetris.update(dt);
+                tetris.draw(c, getWidth(), getHeight());
+            } else if (mode == SKATE) {
+                skate.update(dt);
+                skate.draw(c, getWidth(), getHeight());
+            } else if (mode == BALL) {
+                ball.update(dt);
+                ball.draw(c, getWidth(), getHeight());
+            } else {
+                plane.update(dt);
+                plane.draw(c, getWidth(), getHeight());
+            }
+            postInvalidateOnAnimation();
+        }
+
+        private void updateHome(float dt) {
+            happy = cap(happy - dt / 150f);
+            food = cap(food - dt / 115f);
+            energy = cap(energy - dt / 135f);
+            clean = cap(clean - dt / 220f);
+
+            if (state == WALK) {
+                float speed = dt * .55f;
+                if (Math.abs(targetX - capyX) < speed) {
+                    capyX = targetX;
+                    state = IDLE;
+                } else capyX += Math.signum(targetX - capyX) * speed;
+            } else if (state == SLEEP) {
+                energy = cap(energy + dt * 8f);
+            } else if (state != IDLE) {
+                stateTimer -= dt;
+                if (stateTimer <= 0) state = IDLE;
+            }
+            if (dragKind == DRAG_SOAP && nearCapy(dragX, dragY)) {
+                soapProgress = Math.min(1.15f, soapProgress + dt * .65f);
+                state = CLEAN;
+                stateTimer = .45f;
+                if (t - lastBubbleAt > .055f) {
+                    addBubble(dragX + rand(-20, 20), dragY + rand(-16, 16), 8 + rnd.nextFloat() * 13);
+                    lastBubbleAt = t;
+                }
+            }
+            for (int i = bubbles.size() - 1; i >= 0; i--) {
+                Bubble b = bubbles.get(i);
+                b.life -= dt;
+                b.y -= dt * b.speed;
+                b.x += (float) Math.sin(t * 5 + b.phase) * dt * 15;
+                if (b.life <= 0) bubbles.remove(i);
+            }
+        }
+
+        private void drawHome(Canvas c, float w, float h) {
+            drawRoom25D(c, w, h);
+            drawHeader(c, w, h);
+            float s = Math.min(w, h) * .235f;
+            drawCapybara(c, w * capyX, h * .525f, s, state, 0);
+            drawRoomObjects(c, w, h);
+            drawParticles(c);
+            drawBubbles(c);
+            drawDock(c, w, h);
+            drawNavigation(c, w, h);
+            if (messageUntil == 0 || SystemClock.elapsedRealtime() < messageUntil) drawMessage(c, w, h);
+            if (shopOpen) drawShop(c, w, h);
+        }
+
+        private void drawRoom25D(Canvas c, float w, float h) {
+            int wallTop, wallBottom, floorTop, floorBottom;
+            switch (room) {
+                case 1:
+                    wallTop = 0xFFFFF5C8; wallBottom = 0xFFFFD4BB; floorTop = 0xFFD89B6C; floorBottom = 0xFF9A684D; break;
+                case 2:
+                    wallTop = 0xFFD7FAFF; wallBottom = 0xFFA5DFE8; floorTop = 0xFFE9F9F8; floorBottom = 0xFF9CC7C2; break;
+                case 3:
+                    wallTop = 0xFFF0DFFF; wallBottom = 0xFFFFD9EB; floorTop = 0xFFD4B0E3; floorBottom = 0xFF956FB0; break;
+                case 4:
+                    wallTop = 0xFF26385D; wallBottom = 0xFF512B65; floorTop = 0xFF27334C; floorBottom = 0xFF111827; break;
+                default:
+                    wallTop = 0xFFFFEAF5; wallBottom = 0xFFD8C8FF; floorTop = 0xFFD8B59C; floorBottom = 0xFF9A735E;
+            }
+            p.setShader(new LinearGradient(0, 0, 0, h * .61f, wallTop, wallBottom, Shader.TileMode.CLAMP));
+            c.drawRect(0, 0, w, h * .61f, p); p.setShader(null);
+            Path floor = new Path();
+            floor.moveTo(0, h * .57f); floor.lineTo(w, h * .57f); floor.lineTo(w, h * .9f); floor.lineTo(0, h * .9f); floor.close();
+            p.setShader(new LinearGradient(0, h * .57f, 0, h * .9f, floorTop, floorBottom, Shader.TileMode.CLAMP));
+            c.drawPath(floor, p); p.setShader(null);
+            stroke.setColor(0x25FFFFFF); stroke.setStrokeWidth(2);
+            for (int i = 1; i < 7; i++) {
+                float y = h * (.57f + i * .047f);
+                c.drawLine(0, y, w, y, stroke);
+            }
+            for (int i = 0; i <= 8; i++) {
+                float xTop = w * i / 8f;
+                float xBottom = w * .5f + (xTop - w * .5f) * 1.65f;
+                c.drawLine(xTop, h * .57f, xBottom, h * .9f, stroke);
+            }
+            if (room == 0) drawBedroom(c, w, h);
+            else if (room == 1) drawKitchen(c, w, h);
+            else if (room == 2) drawBathroom(c, w, h);
+            else if (room == 3) drawWardrobe(c, w, h);
+            else drawArcade(c, w, h);
+        }
+
