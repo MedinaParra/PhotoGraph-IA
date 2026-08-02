@@ -31,7 +31,9 @@ jobs:
           {
             cat source_parts/MainActivity.part00
             tail -n +9 source_parts/MainActivity.part01
-            cat source_parts/MainActivity.part02 source_parts/MainActivity.part03 source_parts/MainActivity.part04 source_parts/MainActivity.part05 source_parts/MainActivity.part06
+            cat source_parts/MainActivity.part02
+            tail -n +3 source_parts/MainActivity.part03
+            cat source_parts/MainActivity.part04 source_parts/MainActivity.part05 source_parts/MainActivity.part06
           } > app/src/main/java/cl/medina/atatis/MainActivity.java
 
       - name: Build debug APK
