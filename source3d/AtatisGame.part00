@@ -1,0 +1,190 @@
+package cl.medina.atatis35;
+
+import com.badlogic.gdx.ApplicationAdapter;
+import com.badlogic.gdx.Gdx;
+import com.badlogic.gdx.Input;
+import com.badlogic.gdx.InputMultiplexer;
+import com.badlogic.gdx.InputProcessor;
+import com.badlogic.gdx.Preferences;
+import com.badlogic.gdx.graphics.Color;
+import com.badlogic.gdx.graphics.GL20;
+import com.badlogic.gdx.graphics.PerspectiveCamera;
+import com.badlogic.gdx.graphics.Pixmap;
+import com.badlogic.gdx.graphics.Texture;
+import com.badlogic.gdx.graphics.g2d.BitmapFont;
+import com.badlogic.gdx.graphics.g2d.TextureRegion;
+import com.badlogic.gdx.graphics.g3d.Environment;
+import com.badlogic.gdx.graphics.g3d.ModelBatch;
+import com.badlogic.gdx.graphics.g3d.ModelInstance;
+import com.badlogic.gdx.graphics.g3d.attributes.ColorAttribute;
+import com.badlogic.gdx.graphics.g3d.environment.DirectionalLight;
+import com.badlogic.gdx.math.Intersector;
+import com.badlogic.gdx.math.MathUtils;
+import com.badlogic.gdx.math.Matrix4;
+import com.badlogic.gdx.math.Plane;
+import com.badlogic.gdx.math.collision.Ray;
+import com.badlogic.gdx.math.Vector2;
+import com.badlogic.gdx.math.Vector3;
+import com.badlogic.gdx.scenes.scene2d.Actor;
+import com.badlogic.gdx.scenes.scene2d.InputEvent;
+import com.badlogic.gdx.scenes.scene2d.Stage;
+import com.badlogic.gdx.scenes.scene2d.ui.Label;
+import com.badlogic.gdx.scenes.scene2d.ui.ProgressBar;
+import com.badlogic.gdx.scenes.scene2d.ui.Skin;
+import com.badlogic.gdx.scenes.scene2d.ui.Table;
+import com.badlogic.gdx.scenes.scene2d.ui.TextButton;
+import com.badlogic.gdx.scenes.scene2d.utils.ClickListener;
+import com.badlogic.gdx.scenes.scene2d.utils.TextureRegionDrawable;
+import com.badlogic.gdx.utils.Align;
+import com.badlogic.gdx.utils.ScreenUtils;
+import com.badlogic.gdx.utils.viewport.FitViewport;
+
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Random;
+
+public final class AtatisGame extends ApplicationAdapter implements InputProcessor {
+    static final int HOME = 0;
+    static final int TETRIS = 1;
+    static final int SKATE = 2;
+    static final int BALL = 3;
+    static final int PLANE = 4;
+    static final int DRAG_NONE = -1;
+    static final int DRAG_APPLE = 0;
+    static final int DRAG_CARROT = 1;
+    static final int DRAG_CAKE = 2;
+    static final int DRAG_SOAP = 10;
+
+    private static final String[] ROOM_NAMES = {"Dormitorio", "Cocina", "Bano", "Jardin", "Arcade"};
+    private static final String[] STYLE_NAMES = {"Arcoiris", "Princesa", "Exploradora", "Pijama", "Fiesta", "Skater"};
+    private static final Color[] PALETTE = {
+            Color.valueOf("A97855"), Color.valueOf("E4A7B9"), Color.valueOf("B8A1D8"),
+            Color.valueOf("8FC8B5"), Color.valueOf("91B8D8"), Color.valueOf("D8B67C")
+    };
+    private static final Color PINK = Color.valueOf("FF70A6");
+    private static final Color YELLOW = Color.valueOf("FFD166");
+    private static final Color BLUE = Color.valueOf("67D5FF");
+    private static final Color GREEN = Color.valueOf("7EE2A8");
+    private static final Color PURPLE = Color.valueOf("B28DFF");
+    private static final Color INK = Color.valueOf("553A6B");
+
+    private ModelBatch batch;
+    private Models3D models;
+    private Capybara3D capy;
+    private Environment environment;
+    private PerspectiveCamera camera;
+    private Stage stage;
+    private Skin skin;
+    private Texture whiteTexture;
+    private BitmapFont font;
+    private Preferences prefs;
+    private final Matrix4 transform = new Matrix4();
+    private final Plane groundPlane = new Plane(Vector3.Y, 0f);
+    private final Plane dragPlane = new Plane(Vector3.Y, -1.3f);
+    private final Vector3 picked = new Vector3();
+    private final Vector3 projected = new Vector3();
+    private final Vector3 dragWorld = new Vector3();
+    private final Random random = new Random();
+    private final List<Bubble> bubbles = new ArrayList<>();
+
+    private Table topTable, navTable, actionTable, overlay;
+    private Label roomLabel, starLabel, messageLabel, gameScoreLabel;
+    private ProgressBar happyBar, foodBar, energyBar, cleanBar;
+    private int mode = HOME;
+    private int room = 0;
+    private int fur = 0;
+    private int style = 0;
+    private int stars = 40;
+    private float happy = 88f, food = 82f, energy = 80f, clean = 86f;
+    private final int[] inventory = {1, 1, 0};
+    private int dragKind = DRAG_NONE;
+    private float soapProgress = 0f;
+    private float lastTouchX, lastTouchY;
+    private float cameraYaw = 18f, cameraPitch = 15f, cameraDistance = 8.2f;
+    private boolean cameraDragging = false;
+    private float elapsed = 0f;
+    private float messageTime = 4f;
+    private float foodFly = -1f;
+    private int foodFlyKind = 0;
+    private final Vector3 foodStart = new Vector3();
+    private final Vector3 foodEnd = new Vector3();
+
+    private final TetrisGame tetris = new TetrisGame();
+    private final SkateGame skate = new SkateGame();
+    private final BallGame ball = new BallGame();
+    private final PlaneGame plane = new PlaneGame();
+
+    @Override public void create() {
+        batch = new ModelBatch();
+        models = new Models3D();
+        capy = new Capybara3D(models);
+        environment = new Environment();
+        environment.set(new ColorAttribute(ColorAttribute.AmbientLight, .72f, .72f, .78f, 1f));
+        environment.add(new DirectionalLight().set(1f, .96f, .90f, -1f, -1.8f, -.7f));
+        environment.add(new DirectionalLight().set(.35f, .42f, .55f, .8f, -.7f, .5f));
+        camera = new PerspectiveCamera(52f, Gdx.graphics.getWidth(), Gdx.graphics.getHeight());
+        camera.near = .1f;
+        camera.far = 80f;
+        prefs = Gdx.app.getPreferences("atatis_3d_35_save");
+        load();
+        capy.setLook(fur, style);
+        capy.x = 0f; capy.z = 0f; capy.targetX = 0f; capy.targetZ = 0f;
+        createUi();
+        Gdx.input.setCatchKey(Input.Keys.BACK, true);
+        Gdx.input.setInputProcessor(new InputMultiplexer(stage, this));
+        say("Bienvenida a A-tatis 3D 3.5");
+    }
+
+    private void createUi() {
+        stage = new Stage(new FitViewport(720, 1280));
+        font = new BitmapFont();
+        font.getData().setScale(1.35f);
+        Pixmap px = new Pixmap(2, 2, Pixmap.Format.RGBA8888);
+        px.setColor(Color.WHITE); px.fill();
+        whiteTexture = new Texture(px); px.dispose();
+        skin = new Skin();
+        skin.add("default-font", font);
+        skin.add("white", whiteTexture);
+
+        Label.LabelStyle labelStyle = new Label.LabelStyle(font, INK);
+        skin.add("default", labelStyle);
+        TextButton.TextButtonStyle buttonStyle = new TextButton.TextButtonStyle();
+        buttonStyle.font = font;
+        buttonStyle.fontColor = Color.WHITE;
+        buttonStyle.up = drawable(Color.valueOf("7855A6"));
+        buttonStyle.down = drawable(Color.valueOf("523576"));
+        buttonStyle.checked = drawable(PINK);
+        skin.add("default", buttonStyle);
+        ProgressBar.ProgressBarStyle progressStyle = new ProgressBar.ProgressBarStyle();
+        progressStyle.background = drawable(Color.valueOf("DED4E4"));
+        progressStyle.knobBefore = drawable(PINK);
+        progressStyle.knob = drawable(PINK);
+        skin.add("default-horizontal", progressStyle);
+
+        topTable = new Table();
+        topTable.setFillParent(true); topTable.top().pad(18f);
+        roomLabel = new Label("A-tatis 3D", skin); roomLabel.setFontScale(1.35f);
+        starLabel = new Label("Estrellas: 0", skin);
+        topTable.add(roomLabel).left().expandX(); topTable.add(starLabel).right(); topTable.row();
+        happyBar = stat(topTable, "Alegria");
+        foodBar = stat(topTable, "Comida");
+        energyBar = stat(topTable, "Energia");
+        cleanBar = stat(topTable, "Limpieza");
+        stage.addActor(topTable);
+
+        navTable = new Table(); navTable.setFillParent(true); navTable.bottom().pad(12f);
+        String[] nav = {"CASA", "COCINA", "BANO", "JARDIN", "ARCADE"};
+        for (int i = 0; i < nav.length; i++) {
+            final int index = i;
+            TextButton b = button(nav[i]);
+            b.addListener(new ClickListener(){ @Override public void clicked(InputEvent e, float x, float y){ enterRoom(index); }});
+            navTable.add(b).width(132f).height(70f).pad(4f);
+        }
+        stage.addActor(navTable);
+
+        actionTable = new Table(); actionTable.setFillParent(true); actionTable.bottom().padBottom(94f);
+        stage.addActor(actionTable);
+        messageLabel = new Label("", skin);
+        messageLabel.setAlignment(Align.center);
+        messageLabel.setWrap(true);
