@@ -1,0 +1,190 @@
+        happy = Math.max(0f, happy - dt / 100f);
+        food = Math.max(0f, food - dt / 80f);
+        energy = Math.max(0f, energy - dt / 110f);
+        clean = Math.max(0f, clean - dt / 170f);
+        if (capy.animation == Capybara3D.SLEEP) energy = Math.min(100f, energy + dt * 2.5f);
+        capy.update(dt);
+        for (int i = bubbles.size() - 1; i >= 0; i--) {
+            Bubble b = bubbles.get(i); b.life -= dt; b.y += dt * .35f;
+            if (b.life <= 0f) bubbles.remove(i);
+        }
+        if (foodFly >= 0f) {
+            foodFly += dt;
+            if (foodFly > 1f) {
+                foodFly = -1f;
+                capy.trigger(Capybara3D.EAT, 1.25f);
+                food = Math.min(100f, food + (foodFlyKind == 2 ? 28f : foodFlyKind == 1 ? 18f : 22f));
+                happy = Math.min(100f, happy + 5f);
+                say("A-tatis comio feliz"); save();
+            }
+        }
+        if (messageTime > 0f) messageTime -= dt;
+        else if (overlay == null) messageLabel.setVisible(false);
+    }
+
+    private void updateCamera() {
+        if (mode == HOME) {
+            float yawR = cameraYaw * MathUtils.degreesToRadians;
+            float pitchR = cameraPitch * MathUtils.degreesToRadians;
+            float horizontal = cameraDistance * MathUtils.cos(pitchR);
+            camera.position.set(MathUtils.sin(yawR) * horizontal, 2.3f + MathUtils.sin(pitchR) * cameraDistance,
+                    MathUtils.cos(yawR) * horizontal);
+            camera.lookAt(0f, 1.05f, 0f);
+            camera.up.set(Vector3.Y); camera.update();
+        } else if (mode == TETRIS) {
+            camera.position.set(0f, 6.0f, 13.8f); camera.lookAt(0f, 5.5f, 0f); camera.up.set(Vector3.Y); camera.update();
+        } else if (mode == SKATE) {
+            camera.position.set(0f, 3.2f, 11f); camera.lookAt(0f, 1.2f, 0f); camera.up.set(Vector3.Y); camera.update();
+        } else if (mode == BALL) {
+            camera.position.set(0f, 5.2f, 12f); camera.lookAt(0f, 4f, 0f); camera.up.set(Vector3.Y); camera.update();
+        } else {
+            camera.position.set(0f, 2.5f, 9.5f); camera.lookAt(0f, 2.5f, 0f); camera.up.set(Vector3.Y); camera.update();
+        }
+    }
+
+    private Color clearColor() {
+        if (mode != HOME) return Color.valueOf("1B2448");
+        switch (room) {
+            case 1: return Color.valueOf("FFF1C7");
+            case 2: return Color.valueOf("C7F1F5");
+            case 3: return Color.valueOf("A9E8FF");
+            case 4: return Color.valueOf("302354");
+            default: return Color.valueOf("F7DDF1");
+        }
+    }
+
+    private void renderHome() {
+        renderRoomShell();
+        if (room == 0) renderBedroom();
+        else if (room == 1) renderKitchen();
+        else if (room == 2) renderBathroom();
+        else if (room == 3) renderGarden();
+        else renderArcade();
+        shadow(capy.x, .02f, capy.z, 2.0f, .08f, 1.3f);
+        capy.render(batch, environment, elapsed);
+        renderInteractionObject();
+        for (Bubble b : bubbles) sphere(Color.valueOf("DDFBFF"), b.x, b.y, b.z, b.size, b.size, b.size);
+    }
+
+    private void renderRoomShell() {
+        Color floor = room == 3 ? Color.valueOf("6FC66A") : room == 4 ? Color.valueOf("241A40") : Color.valueOf("E9D7D0");
+        box(floor, 0f, -.16f, 0f, 11f, .28f, 9f);
+        if (room != 3) {
+            Color wall = room == 4 ? Color.valueOf("4C3676") : room == 2 ? Color.valueOf("B7E6E8") : Color.valueOf("F7EAF3");
+            box(wall, 0f, 2.8f, -4.3f, 11f, 5.8f, .18f);
+            box(wall, -5.4f, 2.8f, 0f, .18f, 5.8f, 8.6f);
+        }
+    }
+
+    private void renderBedroom() {
+        box(Color.valueOf("F29AC2"), 3.0f, .65f, -1.8f, 3.4f, .9f, 2.3f);
+        box(Color.WHITE, 2.5f, 1.15f, -1.4f, 1.2f, .30f, 1.0f);
+        box(PURPLE, -3.6f, 1.4f, -3.9f, 2.6f, 2.2f, .20f);
+        for (int i=0;i<7;i++) sphere(YELLOW, -4.3f + (i%4)*.45f, 1.2f+(i/4)*.75f, -3.7f, .10f,.10f,.10f);
+        cylinder(Color.valueOf("F7B267"), -3.4f, 1.0f, 1.8f, .18f, 2f, .18f);
+        cone(YELLOW, -3.4f, 2.1f, 1.8f, .8f, .8f, .8f);
+        box(Color.valueOf("DCC6FF"), 0f, .05f, 1.4f, 4.3f, .05f, 2.1f);
+    }
+
+    private void renderKitchen() {
+        box(Color.valueOf("F8F7F3"), -3.7f, 1.35f, -3.65f, 2.3f, 2.7f, .65f);
+        box(Color.valueOf("A9DDE6"), -3.7f, 1.65f, -3.25f, 1.7f, .9f, .08f);
+        box(Color.valueOf("D9A16C"), 3.0f, .65f, -3.4f, 4f, 1.2f, .8f);
+        sphere(Color.valueOf("E85D4A"), 2.4f, 1.55f, -3.0f, .35f,.35f,.35f);
+        cylinder(Color.valueOf("6DAA45"), 2.4f, 1.95f, -3.0f, .08f,.3f,.08f);
+        box(PINK, 0f, 2.7f, -4.0f, 3.2f, .75f, .16f);
+        for(int i=0;i<3;i++) sphere(i==0?Color.RED:i==1?Color.ORANGE:Color.valueOf("F6A6D8"), -1f+i, .35f, 2.1f, .33f,.33f,.33f);
+    }
+
+    private void renderBathroom() {
+        box(Color.WHITE, 3.1f, .55f, -1.5f, 3.4f, .8f, 2.4f);
+        sphere(Color.valueOf("75D4E5"), 3.1f, .80f, -1.5f, 1.35f,.20f,.85f);
+        cylinder(Color.valueOf("87999D"), 4.0f, 1.55f, -2.0f, .12f, 1.5f, .12f);
+        box(Color.WHITE, -3.5f, .9f, -2.8f, 1.7f, .32f, 1.1f);
+        cylinder(Color.valueOf("A7B9BC"), -3.5f, 1.65f, -2.8f, .10f, 1.25f, .10f);
+        sphere(Color.valueOf("DDFBFF"), 3.6f, 1.7f, -1.2f, .22f,.22f,.22f);
+        sphere(Color.valueOf("DDFBFF"), 2.8f, 1.45f, -.8f, .16f,.16f,.16f);
+    }
+
+    private void renderGarden() {
+        cylinder(Color.valueOf("79543C"), -3.5f, 1.3f, -2.5f, .65f, 2.6f, .65f);
+        sphere(Color.valueOf("4FAA5B"), -3.5f, 3.0f, -2.5f, 2.0f,1.5f,2.0f);
+        cylinder(Color.valueOf("79543C"), 3.5f, 1.0f, -2.8f, .5f, 2.0f, .5f);
+        sphere(Color.valueOf("62BB64"), 3.5f, 2.4f, -2.8f, 1.6f,1.2f,1.6f);
+        for (int i=0;i<12;i++) {
+            float x=-4.3f+(i%6)*1.6f, z=-.6f+(i/6)*2.4f;
+            cylinder(Color.valueOf("4A9B50"),x,.25f,z,.08f,.5f,.08f);
+            sphere(i%2==0?PINK:PURPLE,x,.58f,z,.22f,.12f,.22f);
+        }
+        sphere(YELLOW, 3.8f, 5.0f, -3.8f, .65f,.65f,.65f);
+    }
+
+    private void renderArcade() {
+        Color[] c={BLUE,PINK,YELLOW,GREEN};
+        for(int i=0;i<4;i++) {
+            float x=-3.6f+i*2.4f;
+            box(c[i],x,1.25f,-3.5f,1.55f,2.5f,.75f);
+            box(Color.valueOf("18213D"),x,1.55f,-3.05f,1.15f,.85f,.08f);
+            sphere(Color.WHITE,x-.28f,.62f,-3.0f,.10f,.10f,.10f);
+        }
+        box(Color.valueOf("3C2B5D"),0f,.04f,1.5f,6.5f,.05f,2.4f);
+    }
+
+    private void renderInteractionObject() {
+        if (dragKind == DRAG_APPLE) {
+            sphere(Color.RED, dragWorld.x, dragWorld.y, dragWorld.z, .38f,.38f,.38f);
+            cylinder(Color.valueOf("5A7E35"), dragWorld.x, dragWorld.y+.38f, dragWorld.z, .05f,.25f,.05f);
+        } else if (dragKind == DRAG_CARROT) {
+            cone(Color.valueOf("F08A3C"), dragWorld.x, dragWorld.y, dragWorld.z, .40f,.85f,.40f);
+            sphere(GREEN, dragWorld.x, dragWorld.y+.45f, dragWorld.z, .28f,.15f,.28f);
+        } else if (dragKind == DRAG_CAKE) {
+            cylinder(Color.valueOf("F3A6CF"), dragWorld.x, dragWorld.y, dragWorld.z, .65f,.45f,.65f);
+            sphere(Color.WHITE, dragWorld.x, dragWorld.y+.28f, dragWorld.z, .45f,.10f,.45f);
+        } else if (dragKind == DRAG_SOAP) {
+            box(Color.valueOf("F6A7D0"), dragWorld.x, dragWorld.y, dragWorld.z, .65f,.26f,.42f);
+        }
+        if (foodFly >= 0f) {
+            float a = MathUtils.clamp(foodFly,0f,1f);
+            Vector3 v = picked.set(foodStart).lerp(foodEnd, a);
+            float s = .35f*(1f-a*.65f);
+            sphere(foodFlyKind==0?Color.RED:foodFlyKind==1?Color.ORANGE:PINK,v.x,v.y,v.z,s,s,s);
+        }
+    }
+
+    private void finishWash() {
+        clean = 100f; soapProgress = 0f; dragKind = DRAG_NONE;
+        capy.trigger(Capybara3D.WASH, 1.8f);
+        for(int i=0;i<30;i++) bubbles.add(new Bubble(capy.x+(random.nextFloat()-.5f)*2f,
+                .5f+random.nextFloat()*1.8f,capy.z+(random.nextFloat()-.5f)*1.2f,.09f+random.nextFloat()*.15f,1.3f+random.nextFloat()));
+        say("A-tatis quedo limpia y brillante"); save();
+    }
+
+    private void updateUi() {
+        if (roomLabel == null) return;
+        roomLabel.setText("A-tatis 3D 3.5 - " + ROOM_NAMES[room] + " - " + STYLE_NAMES[style]);
+        starLabel.setText("Estrellas: " + stars);
+        happyBar.setValue(happy); foodBar.setValue(food); energyBar.setValue(energy); cleanBar.setValue(clean);
+        if (gameScoreLabel != null && mode != HOME) {
+            int score = mode==TETRIS?tetris.score:mode==SKATE?skate.score:mode==BALL?ball.score:plane.score;
+            gameScoreLabel.setText("Puntos: " + score);
+        }
+    }
+
+    private void box(Color c,float x,float y,float z,float sx,float sy,float sz){ draw(models.cube(c),x,y,z,sx,sy,sz,0,0,0); }
+    private void sphere(Color c,float x,float y,float z,float sx,float sy,float sz){ draw(models.sphere(c),x,y,z,sx,sy,sz,0,0,0); }
+    private void cylinder(Color c,float x,float y,float z,float sx,float sy,float sz){ draw(models.cylinder(c),x,y,z,sx,sy,sz,0,0,0); }
+    private void cone(Color c,float x,float y,float z,float sx,float sy,float sz){ draw(models.cone(c),x,y,z,sx,sy,sz,0,0,0); }
+    private void draw(ModelInstance instance,float x,float y,float z,float sx,float sy,float sz,float rx,float ry,float rz){
+        transform.idt().translate(x,y,z);
+        if(rx!=0)transform.rotate(Vector3.X,rx);if(ry!=0)transform.rotate(Vector3.Y,ry);if(rz!=0)transform.rotate(Vector3.Z,rz);
+        transform.scale(sx,sy,sz);instance.transform.set(transform);batch.render(instance,environment);
+    }
+    private void shadow(float x,float y,float z,float sx,float sy,float sz){ sphere(new Color(0f,0f,0f,.35f),x,y,z,sx,sy,sz); }
+
+    @Override public boolean touchDown(int screenX, int screenY, int pointer, int button) {
+        lastTouchX=screenX; lastTouchY=screenY;
+        if(mode==PLANE){ plane.drag(screenX,screenY); return true; }
+        if(mode!=HOME)return false;
+        if(dragKind!=DRAG_NONE){ updateDragWorld(screenX,screenY); return true; }
+        cameraDragging=true; return true;
+    }

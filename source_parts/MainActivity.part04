@@ -1,0 +1,169 @@
+                say("Ganaste " + reward + (reward == 1 ? " estrella" : " estrellas") + " en " + gameName);
+            } else say("Volviste a la sala de juegos");
+            mode = HOME; room = 4; save();
+        }
+
+        private boolean nearCapy(float x, float y) {
+            float cx = getWidth() * capyX, cy = getHeight() * .52f, s = Math.min(getWidth(), getHeight()) * .25f;
+            return x > cx - s * .85f && x < cx + s * .85f && y > cy - s * .9f && y < cy + s * .75f;
+        }
+
+        private boolean nearMouth(float x, float y) {
+            float cx = getWidth() * capyX, cy = getHeight() * .52f, s = Math.min(getWidth(), getHeight()) * .235f;
+            float mx = cx - s * .20f, my = cy - s * .01f;
+            return dist(x, y, mx, my) < s * .42f;
+        }
+
+        private void say(String s) { message = s; messageUntil = SystemClock.elapsedRealtime() + 2700; }
+        private void haptic() { performHapticFeedback(HapticFeedbackConstants.KEYBOARD_TAP); }
+
+        // ---------------------- MINIGAME: TETRIS ----------------------
+        private final class TetrisGame {
+            private static final int COLS = 10, ROWS = 16;
+            private final int[][] board = new int[ROWS][COLS];
+            private final RectF back = new RectF(), left = new RectF(), right = new RectF(), rotate = new RectF(), drop = new RectF(), retry = new RectF();
+            private final int[] COLORS = {0, 0xFF67D5FF, 0xFFFFD166, 0xFFB28DFF, 0xFF7EE2A8, 0xFFFF70A6, 0xFFFF8A65, 0xFF7C8CFF};
+            private int type, rot, px, py, score, lines, bestReward;
+            private float fall;
+            private boolean over;
+            private final int[][][][] shapes = {
+                    {{{0,0},{1,0},{2,0},{3,0}},{{1,-1},{1,0},{1,1},{1,2}},{{0,0},{1,0},{2,0},{3,0}},{{1,-1},{1,0},{1,1},{1,2}}},
+                    {{{0,0},{1,0},{0,1},{1,1}},{{0,0},{1,0},{0,1},{1,1}},{{0,0},{1,0},{0,1},{1,1}},{{0,0},{1,0},{0,1},{1,1}}},
+                    {{{0,0},{1,0},{2,0},{1,1}},{{1,-1},{1,0},{1,1},{0,0}},{{0,0},{1,0},{2,0},{1,-1}},{{1,-1},{1,0},{1,1},{2,0}}},
+                    {{{0,0},{1,0},{1,1},{2,1}},{{1,-1},{1,0},{0,0},{0,1}},{{0,0},{1,0},{1,1},{2,1}},{{1,-1},{1,0},{0,0},{0,1}}},
+                    {{{1,0},{2,0},{0,1},{1,1}},{{0,-1},{0,0},{1,0},{1,1}},{{1,0},{2,0},{0,1},{1,1}},{{0,-1},{0,0},{1,0},{1,1}}},
+                    {{{0,0},{0,1},{1,1},{2,1}},{{0,0},{1,0},{0,1},{0,2}},{{0,0},{1,0},{2,0},{2,1}},{{1,0},{1,1},{0,2},{1,2}}},
+                    {{{2,0},{0,1},{1,1},{2,1}},{{0,0},{0,1},{0,2},{1,2}},{{0,0},{0,1},{1,0},{2,0}},{{0,0},{1,0},{1,1},{1,2}}}
+            };
+
+            void reset() {
+                for (int[] row : board) Arrays.fill(row, 0);
+                score = lines = bestReward = 0; fall = 0; over = false; spawn();
+            }
+
+            void spawn() {
+                type = rnd.nextInt(7); rot = 0; px = 3; py = 0;
+                if (collides(px, py, rot)) over = true;
+            }
+
+            void update(float dt) {
+                if (over) return;
+                fall += dt;
+                float speed = Math.max(.12f, .64f - lines * .018f);
+                if (fall > speed) { fall = 0; if (!move(0, 1)) lock(); }
+            }
+
+            boolean move(int dx, int dy) {
+                if (!collides(px + dx, py + dy, rot)) { px += dx; py += dy; return true; }
+                return false;
+            }
+
+            void turn() { int nr = (rot + 1) & 3; if (!collides(px, py, nr)) rot = nr; else if (!collides(px - 1, py, nr)) { px--; rot = nr; } else if (!collides(px + 1, py, nr)) { px++; rot = nr; } }
+
+            boolean collides(int x, int y, int r) {
+                for (int[] cell : shapes[type][r]) {
+                    int xx = x + cell[0], yy = y + cell[1];
+                    if (xx < 0 || xx >= COLS || yy >= ROWS) return true;
+                    if (yy >= 0 && board[yy][xx] != 0) return true;
+                }
+                return false;
+            }
+
+            void lock() {
+                for (int[] cell : shapes[type][rot]) {
+                    int xx = px + cell[0], yy = py + cell[1];
+                    if (yy >= 0 && yy < ROWS && xx >= 0 && xx < COLS) board[yy][xx] = type + 1;
+                }
+                clearLines(); spawn();
+            }
+
+            void clearLines() {
+                int cleared = 0;
+                for (int y = ROWS - 1; y >= 0; y--) {
+                    boolean full = true; for (int x = 0; x < COLS; x++) if (board[y][x] == 0) { full = false; break; }
+                    if (full) {
+                        cleared++;
+                        for (int yy = y; yy > 0; yy--) System.arraycopy(board[yy - 1], 0, board[yy], 0, COLS);
+                        Arrays.fill(board[0], 0); y++;
+                    }
+                }
+                if (cleared > 0) { lines += cleared; score += new int[]{0,100,300,500,800}[cleared]; burst(getWidth() * .5f, getHeight() * .32f, 20); }
+            }
+
+            void hardDrop() { if (over) return; int cells = 0; while (move(0, 1)) cells++; score += cells * 2; lock(); }
+
+            void draw(Canvas c, float w, float h) {
+                p.setShader(new LinearGradient(0,0,0,h,0xFF251C46,0xFF10172B,Shader.TileMode.CLAMP)); c.drawRect(0,0,w,h,p); p.setShader(null);
+                drawMiniHeader(c, w, h, "TETRIS SIMPLE", score, back);
+                float cell = Math.min(w * .075f, h * .0385f), bw = cell * COLS, bh = cell * ROWS, bx = (w - bw) / 2, by = h * .16f;
+                p.setColor(0xAA0B1022); round(c, bx - 12, by - 12, bx + bw + 12, by + bh + 12, 18, p);
+                for (int y = 0; y < ROWS; y++) for (int x = 0; x < COLS; x++) drawTetrisCell(c, bx + x * cell, by + y * cell, cell, board[y][x]);
+                if (!over) for (int[] cc : shapes[type][rot]) { int x = px + cc[0], y = py + cc[1]; if (y >= 0) drawTetrisCell(c, bx + x * cell, by + y * cell, cell, type + 1); }
+                p.setColor(0xDDFFFFFF); text(c, "Líneas: " + lines, w * .5f, by + bh + h * .032f, w * .025f, Paint.Align.CENTER, true);
+                float cy = h * .845f, cw = w * .19f, ch = h * .07f;
+                left.set(w * .06f, cy, w * .06f + cw, cy + ch); right.set(w * .28f, cy, w * .28f + cw, cy + ch); rotate.set(w * .53f, cy, w * .53f + cw, cy + ch); drop.set(w * .75f, cy, w * .75f + cw, cy + ch);
+                miniButton(c, left, "◀", MAGIC[2]); miniButton(c, right, "▶", MAGIC[2]); miniButton(c, rotate, "GIRAR", MAGIC[4]); miniButton(c, drop, "BAJAR", MAGIC[0]);
+                if (over) drawGameOver(c, w, h, "FIN DEL TETRIS", score, Math.max(1, score / 250), retry);
+            }
+
+            void drawTetrisCell(Canvas c, float x, float y, float s, int value) {
+                p.setColor(value == 0 ? 0x201D2A47 : COLORS[value]); round(c, x + 1.5f, y + 1.5f, x + s - 1.5f, y + s - 1.5f, 5, p);
+                if (value != 0) { p.setColor(0x55FFFFFF); round(c, x + 4, y + 4, x + s - 5, y + s * .32f, 3, p); }
+            }
+
+            boolean touch(MotionEvent e) {
+                if (e.getAction() != MotionEvent.ACTION_UP) return true;
+                float x = e.getX(), y = e.getY();
+                if (back.contains(x, y)) { leaveGame(Math.max(0, score / 300), "Tetris"); return true; }
+                if (over) { if (retry.contains(x, y)) reset(); return true; }
+                if (left.contains(x, y)) move(-1, 0); else if (right.contains(x, y)) move(1, 0); else if (rotate.contains(x, y)) turn(); else if (drop.contains(x, y)) hardDrop();
+                haptic(); return true;
+            }
+        }
+
+        // ---------------------- MINIGAME: SKATE ----------------------
+        private final class SkateGame {
+            private final RectF back = new RectF(), jump = new RectF(), trick = new RectF(), retry = new RectF();
+            private float riderY, vy, obstacleX, obstacleW, spin, speed, distance;
+            private int score, combo;
+            private boolean over, trickHeld;
+
+            void reset() { riderY = 0; vy = 0; obstacleX = getWidth() * 1.15f; obstacleW = getWidth() * .11f; spin = 0; speed = getWidth() * .35f; distance = 0; score = combo = 0; over = false; trickHeld = false; }
+
+            void update(float dt) {
+                if (over) return;
+                float ground = getHeight() * .67f;
+                vy += getHeight() * 1.45f * dt; riderY += vy * dt;
+                if (riderY > 0) { if (trickHeld && Math.abs(spin) > 280) { score += 25 + combo * 5; combo++; burst(getWidth() * .27f, ground, 16); } riderY = 0; vy = 0; spin = 0; trickHeld = false; }
+                if (trickHeld && riderY < -5) spin += dt * 500;
+                obstacleX -= speed * dt; distance += speed * dt;
+                if (obstacleX < -obstacleW) { obstacleX = getWidth() * (1.05f + rnd.nextFloat() * .6f); obstacleW = getWidth() * (.075f + rnd.nextFloat() * .07f); score += 10; speed = Math.min(getWidth() * .62f, speed + getWidth() * .012f); }
+                float rx = getWidth() * .27f, groundY = ground + riderY;
+                if (obstacleX < rx + getWidth() * .10f && obstacleX + obstacleW > rx - getWidth() * .09f && groundY > ground - getHeight() * .08f) over = true;
+            }
+
+            void jump() { if (!over && riderY == 0) { vy = -getHeight() * .66f; combo = 0; haptic(); } }
+
+            void draw(Canvas c, float w, float h) {
+                p.setShader(new LinearGradient(0,0,0,h,0xFF9DE5FF,0xFFFFC8E5,Shader.TileMode.CLAMP)); c.drawRect(0,0,w,h,p); p.setShader(null);
+                drawMiniHeader(c, w, h, "A-TATIS PATINETA", score, back);
+                p.setColor(0xFFFFE16A); c.drawCircle(w * .84f, h * .18f, w * .07f, p); cloud(c,w*.16f,h*.23f,w*.09f); cloud(c,w*.63f,h*.29f,w*.07f);
+                p.setColor(0xFF71C66A); c.drawRect(0,h*.48f,w,h*.68f,p);
+                p.setColor(0xFF596273); c.drawRect(0,h*.63f,w,h*.82f,p);
+                p.setColor(0xFFCAD0D8); c.drawRect(0,h*.63f,w,h*.66f,p);
+                stroke.setColor(0xFFFFD166); stroke.setStrokeWidth(6); for(float x=-((distance*.5f)%160);x<w;x+=160)c.drawLine(x,h*.745f,x+75,h*.745f,stroke);
+                // obstacle cone
+                Path cone=new Path(); cone.moveTo(obstacleX,h*.64f); cone.lineTo(obstacleX+obstacleW*.5f,h*.52f); cone.lineTo(obstacleX+obstacleW,h*.64f); cone.close(); p.setColor(0xFFFF7043);c.drawPath(cone,p); p.setColor(Color.WHITE);c.drawRect(obstacleX+obstacleW*.22f,h*.58f,obstacleX+obstacleW*.78f,h*.60f,p);
+                float cx=w*.27f, cy=h*.58f+riderY;
+                c.save(); c.rotate(spin,cx,cy); drawCapybara(c,cx,cy,w*.105f, riderY<0?HAPPY:IDLE,0); drawSkateboard(c,cx,cy+w*.09f,w*.15f); c.restore();
+                jump.set(w*.08f,h*.85f,w*.45f,h*.93f); trick.set(w*.55f,h*.85f,w*.92f,h*.93f); miniButton(c,jump,"SALTAR",MAGIC[2]);miniButton(c,trick,"TRUCO",MAGIC[0]);
+                p.setColor(0xFF5A3B72);text(c,"Salta los conos y pulsa TRUCO en el aire",w*.5f,h*.80f,w*.023f,Paint.Align.CENTER,true);
+                if(over)drawGameOver(c,w,h,"¡CAÍDA SUAVE!",score,Math.max(1,score/80),retry);
+            }
+
+            boolean touch(MotionEvent e) {
+                float x=e.getX(),y=e.getY();
+                if(e.getAction()==MotionEvent.ACTION_DOWN){if(trick.contains(x,y)&&!over)trickHeld=true;return true;}
+                if(e.getAction()==MotionEvent.ACTION_UP){
+                    if(back.contains(x,y)){leaveGame(Math.max(0,score/90),"Patineta");return true;}
+                    if(over){if(retry.contains(x,y))reset();return true;}

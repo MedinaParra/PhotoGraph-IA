@@ -1,0 +1,190 @@
+        Label.LabelStyle messageStyle = new Label.LabelStyle(font, INK);
+        messageStyle.background = drawable(new Color(1f, 1f, 1f, .92f));
+        messageLabel.setStyle(messageStyle);
+        messageLabel.setPosition(70f, 175f); messageLabel.setSize(580f, 76f);
+        stage.addActor(messageLabel);
+        rebuildActions();
+        updateUi();
+    }
+
+    private ProgressBar stat(Table table, String name) {
+        Label l = new Label(name, skin); l.setFontScale(.72f);
+        ProgressBar bar = new ProgressBar(0f, 100f, 1f, false, skin);
+        table.add(l).width(95f).left().padTop(4f);
+        table.add(bar).width(520f).height(18f).padTop(4f).colspan(2); table.row();
+        return bar;
+    }
+
+    private TextureRegionDrawable drawable(Color c) {
+        return new TextureRegionDrawable(new TextureRegion(whiteTexture)).tint(c);
+    }
+
+    private TextButton button(String text) {
+        TextButton b = new TextButton(text, skin);
+        b.getLabel().setFontScale(.70f);
+        return b;
+    }
+
+    private void enterRoom(int index) {
+        if (mode != HOME) return;
+        closeOverlay();
+        room = MathUtils.clamp(index, 0, 4);
+        capy.targetX = 0f; capy.targetZ = 0f;
+        capy.trigger(Capybara3D.HAPPY, .7f);
+        cameraYaw = room == 3 ? -12f : 18f;
+        rebuildActions();
+        say("Entraste a " + ROOM_NAMES[room]);
+        save();
+    }
+
+    private void rebuildActions() {
+        actionTable.clearChildren();
+        if (mode != HOME) { buildGameControls(); return; }
+        if (room == 0) {
+            addAction("DORMIR", () -> { capy.trigger(Capybara3D.SLEEP, 999f); energy = Math.min(100f, energy + 25f); say("A-tatis esta descansando"); });
+            addAction("SALTAR", () -> { capy.trigger(Capybara3D.JUMP, .9f); happy = Math.min(100f, happy + 4f); });
+            addAction("ABRAZO", () -> { capy.trigger(Capybara3D.HAPPY, 1.1f); happy = Math.min(100f, happy + 8f); say("A-tatis recibio un abrazo"); });
+        } else if (room == 1) {
+            addAction("TIENDA", this::showShop);
+            addAction("MANZANA " + inventory[0], () -> beginFoodDrag(0));
+            addAction("ZANAHORIA " + inventory[1], () -> beginFoodDrag(1));
+            addAction("PASTEL " + inventory[2], () -> beginFoodDrag(2));
+        } else if (room == 2) {
+            addAction("JABON 3D", () -> { dragKind = DRAG_SOAP; soapProgress = 0f; say("Arrastra el jabon sobre A-tatis"); });
+            addAction("ENJUAGAR", () -> { if (soapProgress > 20f) finishWash(); else say("Primero frota con el jabon"); });
+            addAction("TOALLA", () -> { clean = Math.min(100f, clean + 10f); capy.trigger(Capybara3D.HAPPY, .8f); say("Suave y seca"); });
+        } else if (room == 3) {
+            addAction("COLOR", () -> { fur = (fur + 1) % PALETTE.length; capy.setLook(fur, style); say("Color: " + (fur + 1)); save(); });
+            addAction("ESTILO", () -> { style = (style + 1) % STYLE_NAMES.length; capy.setLook(fur, style); say("Estilo: " + STYLE_NAMES[style]); save(); });
+            addAction("CORRER", () -> { capy.moveTo(random.nextFloat() * 6f - 3f, random.nextFloat() * 3f - 1.5f); happy = Math.min(100f, happy + 3f); });
+            addAction("CAMARA", () -> { cameraYaw += 45f; });
+        } else {
+            addAction("BLOQUES 3D", () -> startGame(TETRIS));
+            addAction("PATINETA", () -> startGame(SKATE));
+            addAction("PELOTA", () -> startGame(BALL));
+            addAction("AVION", () -> startGame(PLANE));
+        }
+    }
+
+    private void addAction(String text, Runnable action) {
+        TextButton b = button(text);
+        b.addListener(new ClickListener(){ @Override public void clicked(InputEvent event, float x, float y){ action.run(); updateUi(); }});
+        actionTable.add(b).height(72f).minWidth(145f).pad(5f);
+    }
+
+    private void beginFoodDrag(int kind) {
+        if (inventory[kind] <= 0) { say("Compra comida en la tienda"); return; }
+        dragKind = kind;
+        say("Arrastra la comida hasta la boca de A-tatis");
+    }
+
+    private void showShop() {
+        closeOverlay();
+        overlay = new Table();
+        overlay.setBackground(drawable(new Color(.99f, .94f, 1f, .97f)));
+        overlay.setBounds(55f, 290f, 610f, 690f);
+        Label title = new Label("TIENDA DE COMIDA 3D", skin); title.setFontScale(1.15f);
+        overlay.add(title).colspan(3).pad(22f); overlay.row();
+        String[] names = {"Manzana", "Zanahoria", "Pastel"};
+        int[] costs = {3, 4, 7};
+        for (int i = 0; i < 3; i++) {
+            final int kind = i;
+            Label item = new Label(names[i] + "\nPrecio: " + costs[i] + " estrellas", skin);
+            TextButton buy = button("COMPRAR");
+            buy.addListener(new ClickListener(){ @Override public void clicked(InputEvent e,float x,float y){
+                if (stars < costs[kind]) say("Faltan estrellas");
+                else { stars -= costs[kind]; inventory[kind]++; say("Compraste " + names[kind]); rebuildActions(); updateUi(); save(); }
+            }});
+            overlay.add(item).width(300f).pad(16f);
+            overlay.add(buy).width(170f).height(70f).pad(16f); overlay.row();
+        }
+        TextButton close = button("CERRAR");
+        close.addListener(new ClickListener(){ @Override public void clicked(InputEvent e,float x,float y){ closeOverlay(); }});
+        overlay.add(close).colspan(3).width(220f).height(70f).pad(20f);
+        stage.addActor(overlay);
+    }
+
+    private void closeOverlay() {
+        if (overlay != null) { overlay.remove(); overlay = null; }
+    }
+
+    private void startGame(int newMode) {
+        closeOverlay();
+        mode = newMode;
+        dragKind = DRAG_NONE;
+        topTable.setVisible(false); navTable.setVisible(false); messageLabel.setVisible(false);
+        if (mode == TETRIS) tetris.reset();
+        if (mode == SKATE) skate.reset();
+        if (mode == BALL) ball.reset();
+        if (mode == PLANE) plane.reset();
+        rebuildActions();
+    }
+
+    private void leaveGame(int reward, String name) {
+        stars += Math.max(0, reward);
+        happy = Math.min(100f, happy + Math.min(15f, reward * 2f));
+        mode = HOME; room = 4;
+        topTable.setVisible(true); navTable.setVisible(true); messageLabel.setVisible(true);
+        say("Ganaste " + reward + " estrellas en " + name);
+        rebuildActions(); updateUi(); save();
+    }
+
+    private void buildGameControls() {
+        gameScoreLabel = new Label("Puntos: 0", skin); gameScoreLabel.setFontScale(.9f);
+        actionTable.add(gameScoreLabel).height(62f).pad(4f);
+        if (mode == TETRIS) {
+            addGameButton("IZQ", tetris::left); addGameButton("GIRAR", tetris::rotate); addGameButton("DER", tetris::right); addGameButton("BAJAR", tetris::drop);
+        } else if (mode == SKATE) {
+            addGameButton("SALTAR", skate::jump); addGameButton("TRUCO", skate::trick);
+        } else if (mode == BALL) {
+            addGameButton("IZQ", () -> ball.move(-1)); addGameButton("DER", () -> ball.move(1));
+        } else if (mode == PLANE) {
+            addGameButton("IZQ", () -> plane.move(-1,0)); addGameButton("ARRIBA", () -> plane.move(0,1));
+            addGameButton("ABAJO", () -> plane.move(0,-1)); addGameButton("DER", () -> plane.move(1,0));
+        }
+        addGameButton("SALIR", () -> {
+            if (mode == TETRIS) leaveGame(tetris.reward(), "Bloques 3D");
+            else if (mode == SKATE) leaveGame(skate.reward(), "Patineta");
+            else if (mode == BALL) leaveGame(ball.reward(), "Pelota");
+            else leaveGame(plane.reward(), "Avion");
+        });
+    }
+
+    private void addGameButton(String text, Runnable action) {
+        TextButton b = button(text);
+        b.addListener(new ClickListener(){ @Override public void clicked(InputEvent e,float x,float y){ action.run(); }});
+        actionTable.add(b).height(70f).minWidth(105f).pad(3f);
+    }
+
+    private void say(String text) {
+        messageLabel.setText(text);
+        messageTime = 4f;
+        messageLabel.setVisible(true);
+    }
+
+    @Override public void render() {
+        float dt = Math.min(.05f, Gdx.graphics.getDeltaTime());
+        elapsed += dt;
+        if (mode == HOME) updateHome(dt);
+        else if (mode == TETRIS) tetris.update(dt);
+        else if (mode == SKATE) skate.update(dt);
+        else if (mode == BALL) ball.update(dt);
+        else plane.update(dt);
+
+        updateCamera();
+        Color clear = clearColor();
+        ScreenUtils.clear(clear.r, clear.g, clear.b, 1f, true);
+        Gdx.gl.glEnable(GL20.GL_DEPTH_TEST);
+        batch.begin(camera);
+        if (mode == HOME) renderHome();
+        else if (mode == TETRIS) tetris.render();
+        else if (mode == SKATE) skate.render();
+        else if (mode == BALL) ball.render();
+        else plane.render();
+        batch.end();
+
+        updateUi();
+        stage.act(dt); stage.draw();
+    }
+
+    private void updateHome(float dt) {

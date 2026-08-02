@@ -1,0 +1,159 @@
+            if (style == 1) {
+                Path crown = new Path(); crown.moveTo(cx - s * .54f, cy - s * .65f); crown.lineTo(cx - s * .49f, cy - s * .94f); crown.lineTo(cx - s * .33f, cy - s * .78f); crown.lineTo(cx - s * .20f, cy - s * 1.02f); crown.lineTo(cx - s * .05f, cy - s * .76f); crown.lineTo(cx + s * .07f, cy - s * .95f); crown.lineTo(cx, cy - s * .64f); crown.close();
+                p.setColor(0xFFFFD166); c.drawPath(crown, p);
+                p.setColor(0x88FFB4D8); c.drawOval(new RectF(cx - s * .72f, cy + s * .19f, cx + s * .72f, cy + s * .53f), p);
+            } else if (style == 2) {
+                p.setColor(0xFFB58A54); c.drawOval(new RectF(cx - s * .65f, cy - s * .70f, cx + s * .08f, cy - s * .52f), p); round(c, cx - s * .53f, cy - s * .93f, cx - s * .05f, cy - s * .58f, s * .09f, p);
+                p.setColor(0xFF76543A); round(c, cx + s * .28f, cy - s * .04f, cx + s * .62f, cy + s * .40f, s * .07f, p);
+            } else if (style == 3) {
+                Path cap = new Path(); cap.moveTo(cx - s * .57f, cy - s * .60f); cap.quadTo(cx - s * .23f, cy - s * 1.06f, cx + s * .32f, cy - s * .86f); cap.quadTo(cx, cy - s * .64f, cx - s * .05f, cy - s * .53f); cap.close(); p.setColor(0xFF7C8CFF); c.drawPath(cap, p);
+                p.setColor(0xFFFFE37A); c.drawCircle(cx + s * .32f, cy - s * .86f, s * .065f, p);
+                p.setColor(0x776D7CE8); round(c, cx - s * .70f, cy + s * .02f, cx + s * .64f, cy + s * .43f, s * .13f, p);
+            } else if (style == 4) {
+                stroke.setColor(0xFF5D3A77); stroke.setStrokeWidth(s * .035f); c.drawCircle(cx - s * .39f, cy - s * .25f, s * .13f, stroke); c.drawCircle(cx - s * .10f, cy - s * .25f, s * .13f, stroke); c.drawLine(cx - s * .26f, cy - s * .25f, cx - s * .23f, cy - s * .25f, stroke); bow(c, cx - s * .02f, cy + s * .09f, s * .17f);
+            } else if (style == 5) {
+                p.setColor(0xFF4F46A5); round(c, cx - s * .70f, cy + s * .02f, cx + s * .66f, cy + s * .30f, s * .09f, p);
+                p.setColor(0xFFFF70A6); round(c, cx - s * .58f, cy - s * .67f, cx - s * .02f, cy - s * .53f, s * .07f, p);
+                p.setColor(0xFF67D5FF); c.drawCircle(cx - s * .08f, cy - s * .60f, s * .09f, p);
+            } else {
+                stroke.setColor(0xFFFFD166); stroke.setStrokeWidth(s * .035f); c.drawArc(new RectF(cx - s * .47f, cy - s * .03f, cx + s * .31f, cy + s * .28f), 15, 130, false, stroke); heart(c, cx - s * .04f, cy + s * .20f, s * .10f, 0xFFFF6FAE);
+            }
+        }
+
+        private void drawRoomObjects(Canvas c, float w, float h) {
+            if (room == 0) {
+                sleepButton.set(w * .37f, h * .70f, w * .63f, h * .755f);
+                button(c, sleepButton, state == SLEEP ? "DESPERTAR" : "DORMIR", 0xFF7C70D8, true);
+            } else if (room == 1) {
+                shopButton.set(w * .36f, h * .70f, w * .64f, h * .755f);
+                button(c, shopButton, "ABRIR TIENDA", 0xFFF070A9, true);
+            }
+        }
+
+        private void drawDock(Canvas c, float w, float h) {
+            float top = h * .765f, bottom = h * .875f;
+            p.setColor(0xF4FFFFFF); round(c, w * .025f, top, w * .975f, bottom, 27, p);
+            if (room == 0) {
+                drawDockHint(c, "Toca el piso para mover a A-tatis · Toca a A-tatis para abrazarla", w, h);
+                drawBedIcons(c, w, h, top, bottom);
+            } else if (room == 1) drawFoodDock(c, w, h, top, bottom);
+            else if (room == 2) drawBathDock(c, w, h, top, bottom);
+            else if (room == 3) drawStyleDock(c, w, h, top, bottom);
+            else drawGameDock(c, w, h, top, bottom);
+            if (dragKind != DRAG_NONE) drawDraggedItem(c, dragX, dragY, w * .055f);
+        }
+
+        private void drawDockHint(Canvas c, String s, float w, float h) {
+            p.setColor(0xFF665270); text(c, s, w * .5f, h * .813f, w * .023f, Paint.Align.CENTER, true);
+            p.setColor(0xFF9B80AC); text(c, "Su alegría, hambre, energía y limpieza cambian con el tiempo", w * .5f, h * .847f, w * .019f, Paint.Align.CENTER, false);
+        }
+
+        private void drawBedIcons(Canvas c, float w, float h, float top, float bottom) {
+            String[] labels = {"CAMINAR", "ABRAZO", "SALTAR", "DESCANSAR"};
+            for (int i = 0; i < 4; i++) {
+                dockRect(i, w, top, bottom);
+                drawDockCard(c, dockRects[i], labels[i], i == 0 ? MAGIC[2] : i == 1 ? MAGIC[0] : i == 2 ? MAGIC[1] : MAGIC[4], i, 0);
+            }
+        }
+
+        private void drawFoodDock(Canvas c, float w, float h, float top, float bottom) {
+            for (int i = 0; i < 4; i++) {
+                dockRect(i, w, top, bottom);
+                drawDockCard(c, dockRects[i], FOOD_NAMES[i], MAGIC[i], i, inventory[i]);
+            }
+        }
+
+        private void drawBathDock(Canvas c, float w, float h, float top, float bottom) {
+            String[] labels = {"JABÓN", "CEPILLO", "TOALLA", "BURBUJAS"};
+            for (int i = 0; i < 4; i++) {
+                dockRect(i, w, top, bottom);
+                drawDockCard(c, dockRects[i], labels[i], i == 0 ? MAGIC[2] : i == 1 ? MAGIC[0] : i == 2 ? MAGIC[1] : MAGIC[4], i + 10, 0);
+            }
+            if (soapProgress > 0) {
+                p.setColor(0xFFE4DDE8); round(c, w * .08f, top - h * .018f, w * .92f, top - h * .008f, 8, p);
+                p.setColor(MAGIC[2]); round(c, w * .08f, top - h * .018f, w * (.08f + .84f * Math.min(1, soapProgress)), top - h * .008f, 8, p);
+            }
+        }
+
+        private void drawStyleDock(Canvas c, float w, float h, float top, float bottom) {
+            for (int i = 0; i < 3; i++) {
+                dockRect(i, w, top, bottom);
+                drawDockCard(c, dockRects[i], i == 0 ? "ESTILO" : i == 1 ? "COLOR" : "ALEATORIO", i == 0 ? MAGIC[0] : i == 1 ? MAGIC[4] : MAGIC[1], 20 + i, 0);
+            }
+            dockRects[3] = new RectF(w * .755f, top + h * .012f, w * .94f, bottom - h * .012f);
+            drawDockCard(c, dockRects[3], "BRILLO", MAGIC[2], 23, 0);
+        }
+
+        private void drawGameDock(Canvas c, float w, float h, float top, float bottom) {
+            String[] labels = {"TETRIS", "PATINETA", "BOLA", "AVIÓN"};
+            for (int i = 0; i < 4; i++) {
+                dockRect(i, w, top, bottom);
+                drawDockCard(c, dockRects[i], labels[i], MAGIC[i], 30 + i, 0);
+            }
+        }
+
+        private void dockRect(int i, float w, float top, float bottom) {
+            float gap = w * .016f, left = w * .045f, item = (w * .91f - gap * 3) / 4f;
+            dockRects[i] = new RectF(left + i * (item + gap), top + getHeight() * .012f, left + i * (item + gap) + item, bottom - getHeight() * .012f);
+        }
+
+        private void drawDockCard(Canvas c, RectF r, String label, int color, int icon, int count) {
+            p.setColor(0x16000000); round(c, r.left, r.top + 4, r.right, r.bottom + 4, 18, p);
+            p.setColor(0xFFF9F5FB); round(c, r.left, r.top, r.right, r.bottom, 18, p);
+            p.setColor(color); c.drawCircle(r.centerX(), r.top + r.height() * .39f, r.height() * .25f, p);
+            drawIcon(c, icon, r.centerX(), r.top + r.height() * .39f, r.height() * .18f, Color.WHITE);
+            p.setColor(0xFF604E6B); text(c, label, r.centerX(), r.bottom - r.height() * .12f, getWidth() * .017f, Paint.Align.CENTER, true);
+            if (count > 0) {
+                p.setColor(0xFF5A3B72); c.drawCircle(r.right - 11, r.top + 12, 14, p);
+                p.setColor(Color.WHITE); text(c, String.valueOf(count), r.right - 11, r.top + 17, getWidth() * .018f, Paint.Align.CENTER, true);
+            }
+        }
+
+        private void drawNavigation(Canvas c, float w, float h) {
+            float top = h * .888f, item = w / 5f;
+            p.setColor(0xF45A3B72); round(c, 0, top - 10, w, h + 20, 28, p);
+            for (int i = 0; i < 5; i++) {
+                RectF r = new RectF(i * item, top, (i + 1) * item, h); navRects[i] = r;
+                if (i == room) { p.setColor(0x38FFFFFF); round(c, r.left + 7, r.top + 5, r.right - 7, r.bottom - 7, 20, p); }
+                int color = i == room ? 0xFFFFE37A : Color.WHITE;
+                drawIcon(c, 40 + i, r.centerX(), top + h * .025f, w * .027f, color);
+                p.setColor(color); text(c, ROOMS[i].toUpperCase(Locale.ROOT), r.centerX(), h * .977f, w * .017f, Paint.Align.CENTER, i == room);
+            }
+        }
+
+        private void drawMessage(Canvas c, float w, float h) {
+            p.setTextSize(w * .029f); p.setFakeBoldText(true);
+            float tw = p.measureText(message), bw = Math.min(w * .90f, tw + w * .10f), y = h * .69f;
+            p.setColor(0xE85A3B72); round(c, w / 2 - bw / 2, y - h * .03f, w / 2 + bw / 2, y + h * .03f, 25, p);
+            p.setColor(Color.WHITE); text(c, message, w / 2, y + h * .009f, w * .028f, Paint.Align.CENTER, true);
+            p.setFakeBoldText(false);
+        }
+
+        private void drawShop(Canvas c, float w, float h) {
+            p.setColor(0xA8000000); c.drawRect(0, 0, w, h, p);
+            RectF panel = new RectF(w * .055f, h * .12f, w * .945f, h * .82f);
+            p.setColor(0xFFFDF8FF); round(c, panel.left, panel.top, panel.right, panel.bottom, 32, p);
+            p.setColor(0xFF5A3B72); text(c, "TIENDA DE COMIDA", w * .5f, h * .18f, w * .043f, Paint.Align.CENTER, true);
+            p.setColor(0xFFFFB52E); star(c, w * .76f, h * .174f, w * .021f, p);
+            p.setColor(0xFF5A3B72); text(c, String.valueOf(coins), w * .82f, h * .184f, w * .032f, Paint.Align.LEFT, true);
+            closeButton.set(w * .84f, h * .135f, w * .91f, h * .19f);
+            p.setColor(0xFFFF759F); c.drawCircle(closeButton.centerX(), closeButton.centerY(), closeButton.width() * .42f, p);
+            p.setColor(Color.WHITE); text(c, "×", closeButton.centerX(), closeButton.centerY() + closeButton.height() * .18f, w * .042f, Paint.Align.CENTER, true);
+            for (int i = 0; i < 4; i++) {
+                float left = w * (.10f + (i % 2) * .43f), top = h * (.235f + (i / 2) * .25f);
+                RectF r = shopCards[i]; r.set(left, top, left + w * .37f, top + h * .205f);
+                p.setColor(0x14000000); round(c, r.left, r.top + 5, r.right, r.bottom + 5, 24, p);
+                p.setColor(i == 0 ? 0xFFFFF0F4 : i == 1 ? 0xFFFFF2DB : i == 2 ? 0xFFFFE8F4 : 0xFFE6F8FF);
+                round(c, r.left, r.top, r.right, r.bottom, 24, p);
+                drawFood(c, i, r.left + r.width() * .25f, r.top + r.height() * .45f, r.width() * .17f);
+                p.setColor(0xFF5A3B72); text(c, FOOD_NAMES[i], r.left + r.width() * .48f, r.top + r.height() * .34f, w * .025f, Paint.Align.LEFT, true);
+                text(c, "+" + FOOD_GAIN[i] + " comida", r.left + r.width() * .48f, r.top + r.height() * .51f, w * .019f, Paint.Align.LEFT, false);
+                p.setColor(0xFFFFB52E); star(c, r.left + r.width() * .51f, r.top + r.height() * .72f, w * .017f, p);
+                p.setColor(0xFF5A3B72); text(c, String.valueOf(FOOD_PRICE[i]), r.left + r.width() * .60f, r.top + r.height() * .77f, w * .026f, Paint.Align.LEFT, true);
+                p.setColor(coins >= FOOD_PRICE[i] ? 0xFF7C8CFF : 0xFFB8AFBA);
+                round(c, r.right - r.width() * .28f, r.bottom - r.height() * .25f, r.right - r.width() * .05f, r.bottom - r.height() * .06f, 15, p);
+                p.setColor(Color.WHITE); text(c, "COMPRAR", r.right - r.width() * .165f, r.bottom - r.height() * .12f, w * .015f, Paint.Align.CENTER, true);
+            }
+            p.setColor(0xFF8A758F); text(c, "Compra y luego arrastra la comida desde abajo hasta la boca de A-tatis.", w * .5f, h * .775f, w * .020f, Paint.Align.CENTER, false);
+        }
+
