@@ -1,0 +1,160 @@
+
+    @Override public boolean touchDragged(int screenX, int screenY, int pointer) {
+        if(mode==PLANE){ plane.drag(screenX,screenY); return true; }
+        if(mode!=HOME)return false;
+        float dx=screenX-lastTouchX,dy=screenY-lastTouchY;
+        lastTouchX=screenX;lastTouchY=screenY;
+        if(dragKind!=DRAG_NONE){
+            updateDragWorld(screenX,screenY);
+            if(dragKind==DRAG_SOAP && isNearCapy(screenX,screenY)){
+                soapProgress+=Math.abs(dx)+Math.abs(dy);
+                if(random.nextFloat()<.4f)bubbles.add(new Bubble(dragWorld.x,dragWorld.y,dragWorld.z,.08f+random.nextFloat()*.12f,.8f));
+            }
+        }else if(cameraDragging){cameraYaw-=dx*.22f;cameraPitch=MathUtils.clamp(cameraPitch-dy*.12f,-3f,42f);}
+        return true;
+    }
+
+    @Override public boolean touchUp(int screenX, int screenY, int pointer, int button) {
+        if(mode==PLANE)return true;
+        if(mode!=HOME)return false;
+        if(dragKind!=DRAG_NONE){
+            int kind=dragKind;
+            if(kind==DRAG_SOAP){ if(soapProgress>260f&&isNearCapy(screenX,screenY))finishWash(); else say("Sigue frotando el jabon sobre A-tatis"); }
+            else if(isNearCapy(screenX,screenY)&&inventory[kind]>0){
+                inventory[kind]--; foodFlyKind=kind; foodFly=0f; foodStart.set(dragWorld); foodEnd.set(capy.x,1.35f,capy.z+1.25f); dragKind=DRAG_NONE; rebuildActions();
+            }else say("Lleva la comida hasta la boca");
+            return true;
+        }
+        cameraDragging=false;
+        float moved=Math.abs(screenX-lastTouchX)+Math.abs(screenY-lastTouchY);
+        if(moved<18f){
+            Ray ray=camera.getPickRay(screenX,screenY);
+            if(Intersector.intersectRayPlane(ray,groundPlane,picked))capy.moveTo(picked.x,picked.z);
+        }
+        return true;
+    }
+
+    private void updateDragWorld(int sx,int sy){
+        Ray ray=camera.getPickRay(sx,sy);
+        if(!Intersector.intersectRayPlane(ray,dragPlane,dragWorld))dragWorld.set(capy.x,1.3f,capy.z+1f);
+    }
+
+    private boolean isNearCapy(int sx,int sy){
+        projected.set(capy.x,1.3f,capy.z);camera.project(projected);
+        float py=Gdx.graphics.getHeight()-projected.y;
+        float dx=sx-projected.x,dy=sy-py;
+        float radius = Math.min(Gdx.graphics.getWidth(),Gdx.graphics.getHeight())*.22f;
+        return dx*dx+dy*dy<radius*radius;
+    }
+
+    @Override public boolean keyDown(int keycode) {
+        if(keycode==Input.Keys.BACK){
+            if(overlay!=null)closeOverlay();
+            else if(mode!=HOME){ if(mode==TETRIS)leaveGame(tetris.reward(),"Bloques 3D");else if(mode==SKATE)leaveGame(skate.reward(),"Patineta");else if(mode==BALL)leaveGame(ball.reward(),"Pelota");else leaveGame(plane.reward(),"Avion"); }
+            else { save(); Gdx.app.exit(); }
+            return true;
+        }
+        return false;
+    }
+    @Override public boolean keyUp(int keycode){return false;}@Override public boolean keyTyped(char character){return false;}
+    @Override public boolean mouseMoved(int x,int y){return false;}@Override public boolean scrolled(float ax,float ay){cameraDistance=MathUtils.clamp(cameraDistance+ay*.4f,5f,12f);return true;}
+
+    @Override public void resize(int width,int height){camera.viewportWidth=width;camera.viewportHeight=height;camera.update();stage.getViewport().update(width,height,true);}
+    @Override public void pause(){save();}
+    @Override public void dispose(){save();stage.dispose();skin.dispose();batch.dispose();models.dispose();}
+
+    private void load(){
+        room=prefs.getInteger("room",0);fur=prefs.getInteger("fur",0);style=prefs.getInteger("style",0);stars=prefs.getInteger("stars",40);
+        happy=prefs.getFloat("happy",88);food=prefs.getFloat("food",82);energy=prefs.getFloat("energy",80);clean=prefs.getFloat("clean",86);
+        for(int i=0;i<3;i++)inventory[i]=prefs.getInteger("inv"+i,i<2?1:0);
+    }
+    private void save(){
+        prefs.putInteger("room",room).putInteger("fur",fur).putInteger("style",style).putInteger("stars",stars)
+                .putFloat("happy",happy).putFloat("food",food).putFloat("energy",energy).putFloat("clean",clean);
+        for(int i=0;i<3;i++)prefs.putInteger("inv"+i,inventory[i]);prefs.flush();
+    }
+
+    private final class TetrisGame {
+        final int W=8,H=13; final int[][] board=new int[H][W];
+        final int[][][] shapes={{{1,1,1,1}},{{1,1},{1,1}},{{0,1,0},{1,1,1}},{{1,0},{1,0},{1,1}},{{0,1,1},{1,1,0}}};
+        int shape,x,y,rot,score;float timer;boolean over;
+        void reset(){for(int[]r:board)Arrays.fill(r,0);score=0;timer=0;over=false;spawn();}
+        void spawn(){shape=random.nextInt(shapes.length);rot=0;x=W/2-1;y=H-1;if(collides(x,y,rot))over=true;}
+        int[][] rotated(int[][]s,int r){int[][]a=s;for(int k=0;k<r;k++){int[][]n=new int[a[0].length][a.length];for(int yy=0;yy<a.length;yy++)for(int xx=0;xx<a[0].length;xx++)n[xx][a.length-1-yy]=a[yy][xx];a=n;}return a;}
+        boolean collides(int nx,int ny,int nr){int[][]s=rotated(shapes[shape],nr);for(int yy=0;yy<s.length;yy++)for(int xx=0;xx<s[0].length;xx++)if(s[yy][xx]!=0){int bx=nx+xx,by=ny-yy;if(bx<0||bx>=W||by<0||by>=H||board[by][bx]!=0)return true;}return false;}
+        void lock(){int[][]s=rotated(shapes[shape],rot);for(int yy=0;yy<s.length;yy++)for(int xx=0;xx<s[0].length;xx++)if(s[yy][xx]!=0){int by=y-yy;if(by>=0&&by<H)board[by][x+xx]=shape+1;}for(int row=0;row<H;row++){boolean full=true;for(int col=0;col<W;col++)if(board[row][col]==0)full=false;if(full){for(int yy=row;yy<H-1;yy++)board[yy]=Arrays.copyOf(board[yy+1],W);board[H-1]=new int[W];score+=100;row--;}}spawn();}
+        void update(float dt){if(over)return;timer+=dt;if(timer>.65f){timer=0;if(!collides(x,y-1,rot))y--;else lock();}}
+        void left(){if(!over&&!collides(x-1,y,rot))x--;}
+        void right(){if(!over&&!collides(x+1,y,rot))x++;}
+        void rotate(){if(!over&&!collides(x,y,(rot+1)%4))rot=(rot+1)%4;}
+        void drop(){if(over)return;while(!collides(x,y-1,rot)){y--;score+=2;}lock();}
+        int reward(){return Math.max(1,score/120);}
+        void render(){
+            box(Color.valueOf("151C38"),0f,5.3f,-.7f,8.8f,11.5f,.4f);
+            Color[] colors={BLUE,PINK,YELLOW,GREEN,PURPLE,Color.ORANGE};
+            for(int yy=0;yy<H;yy++)for(int xx=0;xx<W;xx++)if(board[yy][xx]>0)box(colors[(board[yy][xx]-1)%colors.length],(xx-W/2f+.5f)*.78f,.55f+yy*.78f,0f,.68f,.68f,.68f);
+            if(!over){int[][]s=rotated(shapes[shape],rot);for(int yy=0;yy<s.length;yy++)for(int xx=0;xx<s[0].length;xx++)if(s[yy][xx]!=0)box(colors[shape%colors.length],(x+xx-W/2f+.5f)*.78f,.55f+(y-yy)*.78f,.15f,.68f,.68f,.68f);}
+            if(over){box(Color.valueOf("7B315A"),0f,5.4f,1.0f,5.8f,1.4f,.3f);}
+        }
+    }
+
+    private final class SkateGame {
+        float obstacleX,jumpY,vy,spin;int score;boolean over;
+        void reset(){obstacleX=6f;jumpY=0;vy=0;spin=0;score=0;over=false;capy.externalScale=.72f;capy.animation=Capybara3D.SKATE;capy.x=-2.6f;capy.z=0;}
+        void update(float dt){if(over)return;obstacleX-=dt*(3.2f+score*.002f);if(obstacleX<-6f){obstacleX=6f;score+=20;}vy-=dt*5.4f;jumpY+=vy*dt;if(jumpY<0){jumpY=0;vy=0;spin=0;}if(Math.abs(obstacleX+2.6f)<.7f&&jumpY<.55f){over=true;capy.trigger(Capybara3D.HAPPY,.6f);}capy.yOffset=jumpY;capy.animationTime+=dt;}
+        void jump(){if(!over&&jumpY<=.01f){vy=3.5f;}}
+        void trick(){if(!over&&jumpY>.25f){spin+=180f;score+=8;}}
+        int reward(){capy.externalScale=1f;capy.yOffset=0;return Math.max(1,score/70);}
+        void render(){
+            box(Color.valueOf("6EA9D8"),0f,-.12f,0f,14f,.2f,7f);
+            for(int i=-5;i<6;i++)box(Color.WHITE,i*1.3f,.01f,0f,.6f,.03f,.08f);
+            cone(Color.valueOf("FF7043"),obstacleX,.55f,0f,.7f,1.1f,.7f);
+            shadow(-2.6f,.01f,0f,1.5f,.05f,.8f);
+            box(PURPLE,-2.6f,jumpY+.16f,0f,1.7f,.14f,.48f);
+            cylinder(Color.valueOf("292536"),-3.15f,jumpY+.05f,.28f,.24f,.18f,.24f);
+            cylinder(Color.valueOf("292536"),-2.05f,jumpY+.05f,.28f,.24f,.18f,.24f);
+            capy.yaw=spin;capy.render(batch,environment,elapsed);
+            if(over)box(Color.valueOf("7B315A"),0f,2.3f,1.2f,5f,1.2f,.25f);
+        }
+    }
+
+    private final class BallGame {
+        float x,y,vx,vy;int score,color;boolean over;
+        final float[][] platforms={{-3f,.4f,2f},{.2f,1.8f,2.1f},{-2.0f,3.2f,1.8f},{1.7f,4.5f,2.0f},{-.5f,5.8f,1.8f}};
+        void reset(){x=-3;y=1.2f;vx=1.1f;vy=3.5f;score=0;color=0;over=false;}
+        void move(int d){vx+=d*.8f;vx=MathUtils.clamp(vx,-3f,3f);}
+        void update(float dt){if(over)return;vy-=6f*dt;x+=vx*dt;y+=vy*dt;for(float[]p:platforms)if(vy<0&&x>p[0]-p[2]/2&&x<p[0]+p[2]/2&&y>.45f+p[1]&&y<.8f+p[1]){y=p[1]+.75f;vy=4.2f;score+=12;color=(color+1)%6;}if(y<-.7f)over=true;}
+        int reward(){return Math.max(1,score/50);}
+        void render(){
+            box(Color.valueOf("253451"),0f,-.2f,0f,11f,.2f,5f);
+            for(float[]p:platforms)box(Color.valueOf("F3E9FF"),p[0],p[1],0f,p[2],.25f,1.3f);
+            sphere(new Color[]{Color.RED,Color.ORANGE,YELLOW,GREEN,BLUE,PURPLE}[color],x,y,0f,.48f,.48f,.48f);
+            if(over)box(Color.valueOf("7B315A"),0f,3f,1.2f,5f,1.2f,.25f);
+        }
+    }
+
+    private final class PlaneGame {
+        float x,y;int score;boolean over;final float[] ringZ={0f,-5f,-10f,-15f};final float[] ringX={0f,1.8f,-1.5f,2.2f};final float[] ringY={2.4f,3.4f,1.6f,2.7f};
+        void reset(){x=0;y=2.4f;score=0;over=false;for(int i=0;i<ringZ.length;i++)ringZ[i]=-i*5f;}
+        void move(int dx,int dy){x=MathUtils.clamp(x+dx*.45f,-3.6f,3.6f);y=MathUtils.clamp(y+dy*.45f,.7f,5.3f);}
+        void drag(int sx,int sy){x=MathUtils.clamp((sx/(float)Gdx.graphics.getWidth()-.5f)*8f,-3.7f,3.7f);y=MathUtils.clamp((1f-sy/(float)Gdx.graphics.getHeight())*5.5f+.3f,.6f,5.5f);}
+        void update(float dt){if(over)return;for(int i=0;i<ringZ.length;i++){ringZ[i]+=dt*4.2f;if(ringZ[i]>7f){float dx=x-ringX[i],dy=y-ringY[i];if(dx*dx+dy*dy<1.4f){score+=25;}else{score=Math.max(0,score-5);}ringZ[i]-=20f;ringX[i]=(random.nextFloat()-.5f)*6f;ringY[i]=1f+random.nextFloat()*4f;}}}
+        int reward(){return Math.max(1,score/65);}
+        void render(){
+            box(Color.valueOf("23335B"),0f,-1f,-10f,20f,.2f,35f);
+            for(int i=0;i<35;i++)sphere(Color.WHITE,-8f+random.nextFloat()*16f,.5f+random.nextFloat()*7f,-18f+random.nextFloat()*30f,.04f,.04f,.04f);
+            drawPlane3D(x,y,3.5f);
+            for(int i=0;i<ringZ.length;i++)drawRing(ringX[i],ringY[i],ringZ[i]);
+        }
+    }
+
+    private void drawRing(float x,float y,float z){for(int i=0;i<16;i++){float a=i*MathUtils.PI2/16f;box(i%2==0?YELLOW:PINK,x+MathUtils.cos(a)*1.15f,y+MathUtils.sin(a)*1.15f,z,.22f,.22f,.35f);}}
+    private void drawPlane3D(float x,float y,float z){
+        cone(Color.valueOf("FFF6E8"),x,y,z,.45f,1.8f,.45f);
+        draw(models.cube(PINK),x,y,z+.05f,2.2f,.12f,.65f,0,0,12f);
+        draw(models.cube(BLUE),x,y+.08f,z-.7f,.9f,.10f,.45f,0,0,0);
+        sphere(Color.valueOf("8FE3FF"),x,y+.25f,z+.45f,.28f,.22f,.28f);
+    }
+
+    private static final class Bubble {float x,y,z,size,life;Bubble(float x,float y,float z,float size,float life){this.x=x;this.y=y;this.z=z;this.size=size;this.life=life;}}
+}
