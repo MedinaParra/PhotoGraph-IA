@@ -1,0 +1,155 @@
+                c.drawLine(xTop, h * .57f, xBottom, h * .9f, stroke);
+            }
+            if (room == 0) drawBedroom(c, w, h);
+            else if (room == 1) drawKitchen(c, w, h);
+            else if (room == 2) drawBathroom(c, w, h);
+            else if (room == 3) drawWardrobe(c, w, h);
+            else drawArcade(c, w, h);
+        }
+
+        private void drawBedroom(Canvas c, float w, float h) {
+            // Window with night sky
+            shadowBox(c, w * .07f, h * .19f, w * .36f, h * .43f, 22, 0xFF694F9A);
+            p.setShader(new LinearGradient(0, h * .2f, 0, h * .42f, 0xFF263A78, 0xFF7B6BC2, Shader.TileMode.CLAMP));
+            round(c, w * .085f, h * .205f, w * .345f, h * .415f, 15, p); p.setShader(null);
+            p.setColor(0xFFFFE27A); for (int i = 0; i < 8; i++) star(c, w * (.11f + (i % 4) * .064f), h * (.245f + (i / 4) * .09f), 5 + i % 3, p);
+            // Bed as 2.5D block
+            drawBlock(c, w * .66f, h * .48f, w * .31f, h * .13f, h * .075f, 0xFFFF9FCB, 0xFFD46B9A, 0xFFFFC5DF);
+            p.setColor(0xFFFDF7FF); round(c, w * .69f, h * .465f, w * .82f, h * .53f, 22, p);
+            p.setColor(0x99FFFFFF); round(c, w * .825f, h * .485f, w * .95f, h * .555f, 18, p);
+            // Rug
+            p.setColor(0x33000000); c.drawOval(new RectF(w * .2f, h * .69f, w * .8f, h * .79f), p);
+            p.setShader(new LinearGradient(w * .2f, 0, w * .8f, 0, MAGIC[0], MAGIC[4], Shader.TileMode.CLAMP));
+            c.drawOval(new RectF(w * .21f, h * .675f, w * .79f, h * .76f), p); p.setShader(null);
+        }
+
+        private void drawKitchen(Canvas c, float w, float h) {
+            drawBlock(c, w * .04f, h * .27f, w * .24f, h * .31f, h * .05f, 0xFFFDF7E8, 0xFFB9A78F, 0xFFFFFFFF);
+            p.setColor(0xFFBDE8EF); round(c, w * .07f, h * .305f, w * .25f, h * .43f, 14, p);
+            p.setColor(0xFF789AA0); c.drawCircle(w * .235f, h * .48f, 6, p);
+            drawBlock(c, w * .69f, h * .42f, w * .28f, h * .16f, h * .06f, 0xFFFFE8C6, 0xFFB98258, 0xFFFFF3DD);
+            p.setColor(0xFFEA6C55); c.drawCircle(w * .78f, h * .39f, w * .045f, p);
+            p.setColor(0xFF62A54A); c.drawOval(new RectF(w * .76f, h * .33f, w * .83f, h * .38f), p);
+            // Shop sign
+            p.setColor(0xFFF070A9); round(c, w * .37f, h * .205f, w * .64f, h * .30f, 18, p);
+            p.setColor(Color.WHITE); text(c, "TIENDA", w * .505f, h * .265f, w * .04f, Paint.Align.CENTER, true);
+            p.setColor(0x55FFFFFF); c.drawCircle(w * .46f, h * .23f, 5, p);
+        }
+
+        private void drawBathroom(Canvas c, float w, float h) {
+            stroke.setColor(0x45FFFFFF); stroke.setStrokeWidth(3);
+            for (float x = 0; x < w; x += w / 7f) c.drawLine(x, h * .17f, x, h * .57f, stroke);
+            for (float y = h * .18f; y < h * .57f; y += w / 7f) c.drawLine(0, y, w, y, stroke);
+            // Tub
+            p.setColor(0x33000000); c.drawOval(new RectF(w * .61f, h * .54f, w * 1.02f, h * .69f), p);
+            drawBlock(c, w * .62f, h * .49f, w * .36f, h * .12f, h * .06f, 0xFFFFFFFF, 0xFFB4CDD1, 0xFFF9FFFF);
+            p.setColor(0xFF79D5E6); c.drawOval(new RectF(w * .65f, h * .49f, w * .95f, h * .575f), p);
+            stroke.setColor(0xFF8B9DA0); stroke.setStrokeWidth(8);
+            c.drawArc(new RectF(w * .83f, h * .39f, w * .96f, h * .55f), 175, 190, false, stroke);
+            p.setColor(0xAAFFFFFF); for (int i = 0; i < 7; i++) c.drawCircle(w * (.67f + (i % 4) * .075f), h * (.47f - (i / 4) * .05f), 8 + (i % 3) * 4, p);
+            // Mirror and sink
+            p.setColor(0xFFF9FFFF); c.drawOval(new RectF(w * .08f, h * .20f, w * .34f, h * .46f), p);
+            stroke.setColor(0xFF6EC9D3); stroke.setStrokeWidth(11); c.drawOval(new RectF(w * .08f, h * .20f, w * .34f, h * .46f), stroke);
+            drawBlock(c, w * .08f, h * .47f, w * .27f, h * .09f, h * .04f, 0xFFFFFFFF, 0xFFAAC4C7, 0xFFF9FFFF);
+        }
+
+        private void drawWardrobe(Canvas c, float w, float h) {
+            drawBlock(c, w * .04f, h * .20f, w * .28f, h * .38f, h * .045f, 0xFFA478C1, 0xFF68467D, 0xFFC69CE0);
+            stroke.setColor(0xFF704F87); stroke.setStrokeWidth(5); c.drawLine(w * .18f, h * .22f, w * .18f, h * .57f, stroke);
+            p.setColor(0xFFFFE07A); c.drawCircle(w * .16f, h * .40f, 5, p); c.drawCircle(w * .20f, h * .40f, 5, p);
+            p.setColor(0xFFFDF9FF); c.drawOval(new RectF(w * .70f, h * .22f, w * .97f, h * .53f), p);
+            stroke.setColor(0xFFFF92C1); stroke.setStrokeWidth(13); c.drawOval(new RectF(w * .70f, h * .22f, w * .97f, h * .53f), stroke);
+            hanger(c, w * .45f, h * .29f, w * .10f, MAGIC[0]); hanger(c, w * .57f, h * .26f, w * .09f, MAGIC[2]);
+        }
+
+        private void drawArcade(Canvas c, float w, float h) {
+            // Neon signs and arcade machines
+            p.setColor(0x33FFFFFF); for (int i = 0; i < 18; i++) c.drawCircle((i * 83f) % w, h * (.20f + (i % 4) * .07f), 2 + i % 3, p);
+            neonText(c, "A-TATIS ARCADE", w * .5f, h * .25f, w * .052f, MAGIC[2]);
+            drawArcadeMachine(c, w * .08f, h * .35f, w * .20f, h * .22f, MAGIC[0], "▦");
+            drawArcadeMachine(c, w * .72f, h * .35f, w * .20f, h * .22f, MAGIC[1], "✈");
+            p.setColor(0x44000000); c.drawOval(new RectF(w * .18f, h * .69f, w * .82f, h * .79f), p);
+            p.setColor(0xFF2F416B); c.drawOval(new RectF(w * .2f, h * .675f, w * .8f, h * .76f), p);
+            stroke.setColor(MAGIC[4]); stroke.setStrokeWidth(5); c.drawOval(new RectF(w * .2f, h * .675f, w * .8f, h * .76f), stroke);
+        }
+
+        private void drawHeader(Canvas c, float w, float h) {
+            p.setColor(0xF5FFFFFF); round(c, w * .025f, h * .018f, w * .975f, h * .16f, 28, p);
+            p.setColor(0xFF5A3B72); text(c, "A-tatis 2.0", w * .055f, h * .065f, w * .05f, Paint.Align.LEFT, true);
+            text(c, ROOMS[room] + " · " + STYLE_NAMES[style], w * .055f, h * .096f, w * .025f, Paint.Align.LEFT, false);
+            p.setColor(0xFFFFB52E); star(c, w * .865f, h * .058f, w * .025f, p);
+            p.setColor(0xFF5A3B72); text(c, String.valueOf(coins), w * .93f, h * .068f, w * .038f, Paint.Align.RIGHT, true);
+            float y = h * .112f, gap = w * .014f, bw = (w * .89f - gap * 3) / 4f;
+            stat(c, w * .055f, y, bw, happy, "ALEGRÍA", 0xFFFF6FAE);
+            stat(c, w * .055f + bw + gap, y, bw, food, "COMIDA", 0xFFFFA84D);
+            stat(c, w * .055f + (bw + gap) * 2, y, bw, energy, "ENERGÍA", 0xFF7C8CFF);
+            stat(c, w * .055f + (bw + gap) * 3, y, bw, clean, "LIMPIEZA", 0xFF45C9C0);
+        }
+
+        private void stat(Canvas c, float x, float y, float w, float value, String label, int color) {
+            p.setColor(0xFF6E5A79); text(c, label, x, y, getWidth() * .0155f, Paint.Align.LEFT, true);
+            float top = y + getHeight() * .008f, bh = getHeight() * .013f;
+            p.setColor(0xFFE7DFEA); round(c, x, top, x + w, top + bh, bh / 2, p);
+            p.setColor(color); round(c, x, top, x + w * value / 100f, top + bh, bh / 2, p);
+        }
+
+        private void drawCapybara(Canvas c, float cx, float cy, float s, int anim, float rotation) {
+            float bodyBob = (float) Math.sin(t * (anim == WALK ? 10 : 2.4)) * s * (anim == WALK ? .035f : .012f);
+            float jump = anim == HAPPY ? -(float) Math.sin(Math.min(1, 1.1f - stateTimer) * Math.PI) * s * .35f : 0;
+            cy += bodyBob + jump;
+            c.save(); c.rotate(rotation, cx, cy);
+            int base = FUR[fur], light = blend(base, Color.WHITE, .28f), dark = blend(base, Color.BLACK, .24f);
+            // Ground shadow
+            p.setColor(0x35000000); c.drawOval(new RectF(cx - s * .72f, cy + s * .42f, cx + s * .78f, cy + s * .63f), p);
+            // Tail and body gradients
+            p.setColor(dark); c.drawCircle(cx + s * .64f, cy + s * .16f, s * .14f, p);
+            p.setShader(new LinearGradient(cx, cy - s * .25f, cx, cy + s * .55f, light, base, Shader.TileMode.CLAMP));
+            c.drawOval(new RectF(cx - s * .72f, cy - s * .14f, cx + s * .73f, cy + s * .57f), p); p.setShader(null);
+            // Legs animate
+            float legSwing = anim == WALK ? (float) Math.sin(t * 11) * s * .10f : 0;
+            p.setColor(dark);
+            round(c, cx - s * .53f + legSwing, cy + s * .31f, cx - s * .27f + legSwing, cy + s * .69f, s * .10f, p);
+            round(c, cx + s * .18f - legSwing, cy + s * .31f, cx + s * .44f - legSwing, cy + s * .69f, s * .10f, p);
+            p.setColor(0xFF5B3A30); c.drawOval(new RectF(cx - s * .56f + legSwing, cy + s * .61f, cx - s * .23f + legSwing, cy + s * .72f), p);
+            c.drawOval(new RectF(cx + s * .15f - legSwing, cy + s * .61f, cx + s * .48f - legSwing, cy + s * .72f), p);
+            // Head
+            p.setShader(new LinearGradient(cx - s * .45f, cy - s * .55f, cx, cy + s * .15f, light, base, Shader.TileMode.CLAMP));
+            c.drawCircle(cx - s * .29f, cy - s * .26f, s * .44f, p); p.setShader(null);
+            // Ears
+            p.setColor(dark); c.drawCircle(cx - s * .56f, cy - s * .56f, s * .15f, p); c.drawCircle(cx - s * .07f, cy - s * .59f, s * .145f, p);
+            p.setColor(blend(base, 0xFFFFB8C7, .42f)); c.drawCircle(cx - s * .56f, cy - s * .56f, s * .075f, p); c.drawCircle(cx - s * .07f, cy - s * .59f, s * .073f, p);
+            // Snout
+            p.setColor(light); c.drawOval(new RectF(cx - s * .57f, cy - s * .28f, cx + s * .05f, cy + s * .14f), p);
+            // Horn and mane
+            horn(c, cx - s * .28f, cy - s * .70f, s * .34f); mane(c, cx + s * .015f, cy - s * .45f, s);
+            // Face
+            boolean blink = anim == SLEEP || anim == CLEAN || ((int) (t * 2.2f) % 13 == 0);
+            if (blink) {
+                stroke.setColor(0xFF342934); stroke.setStrokeWidth(s * .032f);
+                c.drawArc(new RectF(cx - s * .49f, cy - s * .32f, cx - s * .28f, cy - s * .16f), 12, 155, false, stroke);
+            } else {
+                p.setColor(0xFF2D2233); c.drawCircle(cx - s * .39f, cy - s * .25f, s * .052f, p);
+                p.setColor(Color.WHITE); c.drawCircle(cx - s * .408f, cy - s * .272f, s * .016f, p);
+            }
+            p.setColor(0xFFFF91AA); c.drawCircle(cx - s * .51f, cy - s * .04f, s * .073f, p);
+            p.setColor(0xFF4C342E); c.drawOval(new RectF(cx - s * .37f, cy - s * .13f, cx - s * .20f, cy - s * .015f), p);
+            // Mouth states
+            stroke.setColor(0xFF4C342E); stroke.setStrokeWidth(s * .020f);
+            if (anim == EAT) {
+                float open = .06f + Math.abs((float) Math.sin(t * 13)) * .08f;
+                p.setColor(0xFF6E3540); c.drawOval(new RectF(cx - s * .29f, cy - s * .015f, cx - s * .10f, cy + s * open), p);
+                p.setColor(0xFFFFD5C9); c.drawOval(new RectF(cx - s * .235f, cy + s * .025f, cx - s * .13f, cy + s * open), p);
+            } else {
+                c.drawArc(new RectF(cx - s * .31f, cy - s * .035f, cx - s * .10f, cy + s * .12f), 15, 115, false, stroke);
+            }
+            if (anim == SLEEP) {
+                p.setColor(0xFF6B4E8A); text(c, "Z", cx + s * .18f, cy - s * .53f, s * .22f, Paint.Align.LEFT, true);
+            }
+            accessory(c, cx, cy, s);
+            if (anim == CLEAN) {
+                p.setColor(0x99FFFFFF); star(c, cx - s * .65f, cy - s * .20f, s * .08f, p); star(c, cx + s * .48f, cy + s * .05f, s * .06f, p);
+            }
+            c.restore();
+        }
+
+        private void accessory(Canvas c, float cx, float cy, float s) {
