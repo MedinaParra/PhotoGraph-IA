@@ -27,7 +27,12 @@ jobs:
           gradle-version: '8.11.1'
 
       - name: Assemble generated game source
-        run: cat source_parts/MainActivity.part* > app/src/main/java/cl/medina/atatis/MainActivity.java
+        run: |
+          {
+            cat source_parts/MainActivity.part00
+            tail -n +9 source_parts/MainActivity.part01
+            cat source_parts/MainActivity.part02 source_parts/MainActivity.part03 source_parts/MainActivity.part04 source_parts/MainActivity.part05 source_parts/MainActivity.part06
+          } > app/src/main/java/cl/medina/atatis/MainActivity.java
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
