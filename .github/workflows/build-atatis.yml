@@ -27,7 +27,9 @@ jobs:
           gradle-version: '8.11.1'
 
       - name: Assemble A-tatis 3D game source
-        run: cat source3d/AtatisGame.part00 source3d/AtatisGame.part01 source3d/AtatisGame.part02 source3d/AtatisGame.part03 > app/src/main/java/cl/medina/atatis35/AtatisGame.java
+        run: |
+          cat source3d/AtatisGame.part00 source3d/AtatisGame.part01 source3d/AtatisGame.part02 source3d/AtatisGame.part03 > app/src/main/java/cl/medina/atatis35/AtatisGame.java
+          python source3d/prepare_source.py
 
       - name: Build debug APK
         run: gradle --no-daemon --stacktrace :app:assembleDebug
